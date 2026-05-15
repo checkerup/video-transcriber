@@ -1,28 +1,30 @@
+[![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md) [![Русский](https://img.shields.io/badge/lang-Русский-red.svg)](README.ru.md) [![中文](https://img.shields.io/badge/lang-中文-green.svg)](README.zh.md)
+
 # Video Transcriber
 
-Автоматическая расшифровка видео: следит за папкой или запуском программ, записывает экран, транскрибирует локально (бесплатно!), шлет уведомление в Telegram.
+Automatic video transcription: watches a folder or program launches, records screen, transcribes locally (free!), sends Telegram notifications.
 
-**Whisper — полностью бесплатная модель (MIT лицензия).** Всё работает локально, ничего не уходит в облако.
+**Whisper is a completely free model (MIT license).** Everything runs locally — nothing leaves your machine.
 
-## Возможности
+## Features
 
-- **Автозапись экрана** — при запуске программы (Zoom, OBS и т.д.) автоматически начинается запись экрана, при закрытии — стоп + транскрипция
-- **Автодетект железа** — скрипт проверяет CPU/RAM/GPU и подбирает оптимальную модель
-- **First-run визард** — при первом запуске интерактивная настройка (6 шагов)
-- **Слежка за папкой** — watchdog автоматически ловит новые видеофайлы
-- **Экстракция аудио** — FFmpeg вытягивает MP3 без перекодирования
-- **Транскрибация** — faster-whisper (локально, бесплатно, приватно) с таймкодами
-- **Уведомления** — Telegram-бот сообщает когда готово
-- **Автозапуск** — установка в автозапуск одной командой (Windows/macOS/Linux)
-- **Интерактивное меню** — `menu.bat` / `menu.sh` со всеми режимами
-- **Кроссплатформенный** — Windows, macOS, Linux
+- **Auto screen recording** — when a target program (Zoom, OBS, etc.) launches, screen recording starts automatically; when it closes, recording stops and transcription begins
+- **Hardware auto-detect** — checks CPU/RAM/GPU and recommends the optimal Whisper model
+- **First-run wizard** — interactive 6-step setup on first launch
+- **Folder watcher** — watchdog automatically catches new video files
+- **Audio extraction** — FFmpeg pulls MP3 without re-encoding
+- **Transcription** — faster-whisper (local, free, private) with timestamps
+- **Notifications** — Telegram bot reports when done with file paths
+- **Autostart** — install as auto-start service with one command (Windows/macOS/Linux)
+- **Interactive menu** — `menu.bat` / `menu.sh` with all modes
+- **Cross-platform** — Windows, macOS, Linux
 
-## Быстрый старт
+## Quick Start
 
 ### Windows
 
 ```bat
-git clone https://github.com/YOU/video-transcriber.git
+git clone https://github.com/checkerup/video-transcriber.git
 cd video-transcriber
 install.bat
 menu.bat
@@ -31,24 +33,24 @@ menu.bat
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/YOU/video-transcriber.git
+git clone https://github.com/checkerup/video-transcriber.git
 cd video-transcriber
 chmod +x install.sh menu.sh start.sh stop.sh
 ./install.sh
 ./menu.sh
 ```
 
-При **первом запуске** автоматически запустится визард:
-1. Проверка железа → рекомендация модели
-2. Настройка путей (watch folder, output folder)
-3. Выбор языка и формата транскрипта (txt/srt/vtt)
-4. Настройка Telegram (bot token + chat ID)
-5. Настройка Process Watcher (автозапись при запуске программы)
-6. Предложение установить в автозапуск
+On **first run**, the setup wizard launches automatically:
+1. Hardware check → model recommendation
+2. Folder setup (watch folder, output folder)
+3. Language & transcript format selection (txt/srt/vtt)
+4. Telegram setup (bot token + chat ID)
+5. Process Watcher setup (auto-record on program launch)
+6. Autostart offer
 
-## Интерактивное меню
+## Interactive Menu
 
-Запустите `menu.bat` (Windows) или `./menu.sh` (macOS/Linux):
+Run `menu.bat` (Windows) or `./menu.sh` (macOS/Linux):
 
 ```
   ╔══════════════════════════════════════════════╗
@@ -68,206 +70,206 @@ chmod +x install.sh menu.sh start.sh stop.sh
   [0]  Exit
 ```
 
-## Режимы работы
+## Operating Modes
 
-### 1. Демон — слежка за папкой
+### 1. Daemon — Folder Watch
 
-Следит за папкой, новые видео обрабатываются автоматически. Если в конфиге указаны `program_names`, параллельно работает Process Watcher.
+Watches a folder, new videos are processed automatically. If `program_names` are configured, Process Watcher runs in parallel.
 
 ```bash
 python -m video_transcriber.main
 ```
 
-### 2. Process Watcher — автозапись при запуске программы
+### 2. Process Watcher — Auto-record on Program Launch
 
-Когда программа (например Zoom) запустилась — автоматически начинается запись экрана. Когда закрылась — запись останавливается и запускается транскрипция.
+When a target program (e.g. Zoom) launches — screen recording starts automatically. When it closes — recording stops and transcription begins.
 
-В `config.yaml`:
+In `config.yaml`:
 ```yaml
 process_watcher:
   program_names: ["Zoom.exe", "obs64.exe"]
   poll_interval: 5
 ```
 
-Или через CLI:
+Or via CLI:
 ```bash
 python -m video_transcriber.main --watch-process "Zoom.exe"
 ```
 
-Можно мониторить несколько программ через запятую:
+Monitor multiple programs:
 ```bash
 python -m video_transcriber.main --watch-process "Zoom.exe,Teams.exe"
 ```
 
-### 3. Ручная запись экрана
+### 3. Manual Screen Recording
 
-Начать запись → Ctrl+C → стоп → транскрипция:
+Start recording → Ctrl+C → stop → transcribe:
 
 ```bash
 python -m video_transcriber.main --record
 ```
 
-### 4. Один файл
+### 4. Single File
 
-Обработать конкретное видео без демона:
+Process a specific video without the daemon:
 
 ```bash
 python -m video_transcriber.main --file "video.mp4"
 ```
 
-## Полный пайплайн
+## Full Pipeline
 
 ```
-Видео появилось в папке (или запись экрана завершена)
-  → FFmpeg извлекает аудиодорожку в MP3
-  → faster-whisper транскрибирует (с таймкодами)
-  → Текст сохраняется (txt/srt/vtt)
-  → Telegram-бот отправляет уведомление с путями к файлам
+Video appears in folder (or screen recording finishes)
+  → FFmpeg extracts audio track to MP3
+  → faster-whisper transcribes (with timestamps)
+  → Text saved (txt/srt/vtt)
+  → Telegram bot sends notification with file paths
 ```
 
-## CLI (все флаги)
+## CLI (all flags)
 
 ```bash
-python -m video_transcriber.main                        # демон (папка + process watcher)
-python -m video_transcriber.main --file "vid.mp4"       # один файл
-python -m video_transcriber.main --record               # ручная запись экрана
-python -m video_transcriber.main --watch-process "Zoom" # автозапись при запуске программы
-python -m video_transcriber.main --setup                 # перенастроить (визард)
-python -m video_transcriber.main --check-hardware       # проверить железо
-python -m video_transcriber.main --install-autostart    # установить автозапуск
-python -m video_transcriber.main --uninstall-autostart  # убрать автозапуск
-python -m video_transcriber.main --config my.yaml       # использовать свой конфиг
-python -m video_transcriber.main --verbose              # debug логирование
+python -m video_transcriber.main                        # daemon (folder + process watcher)
+python -m video_transcriber.main --file "vid.mp4"       # single file
+python -m video_transcriber.main --record               # manual screen recording
+python -m video_transcriber.main --watch-process "Zoom" # auto-record on program launch
+python -m video_transcriber.main --setup                # re-run setup wizard
+python -m video_transcriber.main --check-hardware       # detect hardware
+python -m video_transcriber.main --install-autostart    # install autostart
+python -m video_transcriber.main --uninstall-autostart  # remove autostart
+python -m video_transcriber.main --config my.yaml       # custom config
+python -m video_transcriber.main --verbose              # debug logging
 ```
 
-## Конфигурация
+## Configuration
 
-`config.yaml` (создается визардом автоматически, или вручную из `config.example.yaml`):
+`config.yaml` (created by wizard automatically, or manually from `config.example.yaml`):
 
 ```yaml
 watch:
-  folder: "~/Videos/Incoming"       # папка для слежки
+  folder: "~/Videos/Incoming"       # folder to monitor
   extensions: [.mp4, .mkv, .avi, .mov, .webm]
-  delay_seconds: 10                 # ожидание до обработки (файл должен дозаписаться)
+  delay_seconds: 10                 # wait before processing (file must finish writing)
 
 processing:
-  output_folder: "~/Videos/Processed"  # куда сохранять результаты
+  output_folder: "~/Videos/Processed"  # where to save results
   audio_format: "mp3"
   audio_bitrate: "192k"
-  keep_audio: true                  # сохранять MP3 после транскрибации
+  keep_audio: true                  # keep MP3 after transcription
 
 transcription:
   model_size: "base"               # tiny/base/small/medium/large-v2
-  device: "auto"                    # auto/cpu/cuda (auto = определит GPU)
+  device: "auto"                    # auto/cpu/cuda (auto = detect GPU)
   compute_type: "int8"             # int8/int8_float16/float16
-  language: "ru"                    # язык или "auto" для автоопределения
+  language: "en"                    # language or "auto" for auto-detect
   output_format: "txt"             # txt/srt/vtt
-  word_timestamps: true             # таймкоды для каждого слова
+  word_timestamps: true             # timestamps for each word
 
 telegram:
-  bot_token: ""                    # от @BotFather (или в .env)
-  chat_id: ""                      # ваш chat ID (или в .env)
+  bot_token: ""                    # from @BotFather (or in .env)
+  chat_id: ""                      # your chat ID (or in .env)
 
 recorder:
-  fps: 30                          # FPS записи экрана
-  # video_size: "1920x1080"        # разрешение (только для Linux/x11grab)
+  fps: 30                          # screen recording FPS
+  # video_size: "1920x1080"        # resolution (Linux/x11grab only)
 
 process_watcher:
-  program_names: ["Zoom.exe"]       # имена процессов для отслеживания
-  poll_interval: 5                  # секунд между проверками
+  program_names: ["Zoom.exe"]       # process names to watch for
+  poll_interval: 5                  # seconds between checks
 ```
 
-Секреты через `.env` (альтернатива config.yaml):
+Secrets via `.env` (alternative to config.yaml):
 ```
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 TELEGRAM_CHAT_ID=123456789
 ```
 
-## Как работает Process Watcher
+## How Process Watcher Works
 
 ```
-Zoom.exe запустился
-  → psutil обнаруживает процесс (каждые 5 сек)
-  → FFmpeg начинает запись экрана (gdigrab/avfoundation/x11grab)
-Zoom.exe закрылся
-  → FFmpeg останавливается (отправляется сигнал 'q')
-  → Видео сохраняется в ~/Videos/Processed/screen_2025-01-15_14-30-00.mp4
-  → Запускается пайплайн: MP3 → транскрибация → Telegram уведомление
+Zoom.exe launches
+  → psutil detects process (every 5 sec)
+  → FFmpeg starts screen recording (gdigrab/avfoundation/x11grab)
+Zoom.exe exits
+  → FFmpeg stops (sends 'q' signal)
+  → Video saved to ~/Videos/Processed/screen_2025-01-15_14-30-00.mp4
+  → Pipeline runs: MP3 → transcription → Telegram notification
 ```
 
-## Запись экрана — платформы
+## Screen Recording — Platforms
 
-| ОС | Метод FFmpeg | Примечание |
-|----|-------------|------------|
-| Windows | `-f gdigrab -i desktop` | Работает из коробки |
-| macOS | `-f avfoundation -i 1` | Требуется разрешение: Системные настройки → Конфиденциальность → Запись экрана |
-| Linux | `-f x11grab -i :0.0` | Требует X11. На Wayland: использовать pipewire или переключиться на X11 |
+| OS | FFmpeg Method | Notes |
+|----|---------------|-------|
+| Windows | `-f gdigrab -i desktop` | Works out of the box |
+| macOS | `-f avfoundation -i 1` | Requires Screen Recording permission in System Settings → Privacy |
+| Linux | `-f x11grab -i :0.0` | Requires X11. On Wayland: use pipewire or switch to X11 |
 
-## Модели Whisper (бесплатные, MIT лицензия)
+## Whisper Models (free, MIT license)
 
-Модель скачивается **один раз** автоматически при первом запуске. Все модели OpenAI Whisper — открытые (MIT), бесплатны навсегда.
+The model downloads **once** automatically on first run. All OpenAI Whisper models are open-source (MIT), free forever.
 
-| Размер | RAM/VRAM | Скорость | Качество | Автовыбор при |
-|--------|----------|----------|----------|---------------|
-| tiny   | ~1 GB    | fastest  | basic    | < 4GB RAM, нет GPU |
-| base   | ~1 GB    | fast     | good     | 4-8GB RAM или 1.5GB VRAM |
-| small  | ~2 GB    | moderate | great    | 8-16GB RAM или 2.5GB VRAM |
-| medium | ~5 GB    | slow     | excellent| 16GB+ RAM или 5GB+ VRAM |
-| large-v2| ~10 GB  | v.slow   | best     | 10GB+ VRAM |
+| Size | RAM/VRAM | Speed | Quality | Auto-select when |
+|------|----------|-------|---------|------------------|
+| tiny | ~1 GB | fastest | basic | < 4GB RAM, no GPU |
+| base | ~1 GB | fast | good | 4-8GB RAM or 1.5GB VRAM |
+| small | ~2 GB | moderate | great | 8-16GB RAM or 2.5GB VRAM |
+| medium | ~5 GB | slow | excellent | 16GB+ RAM or 5GB+ VRAM |
+| large-v2 | ~10 GB | v.slow | best | 10GB+ VRAM |
 
-## Автозапуск (OS-специфичный)
+## Autostart (OS-specific)
 
-| ОС | Метод | Расположение |
-|----|-------|-------------|
+| OS | Method | Location |
+|----|--------|----------|
 | Windows | Task Scheduler | `schtasks /Create /SC ONLOGON` |
 | macOS | LaunchAgent | `~/Library/LaunchAgents/com.video-transcriber.plist` |
 | Linux | systemd user service | `~/.config/systemd/user/video-transcriber.service` |
 
-## CUDA (GPU ускорение)
+## CUDA (GPU Acceleration)
 
-Скрипт автоматически обнаружит NVIDIA GPU через `torch.cuda` или `nvidia-smi`. Если CUDA доступна — транскрибация пойдёт на GPU (в 3-10 раз быстрее CPU).
+The script auto-detects NVIDIA GPU via `torch.cuda` or `nvidia-smi`. If CUDA is available — transcription runs on GPU (3-10x faster than CPU).
 
-Ручная установка CUDA-зависимостей:
+Manual CUDA dependency install:
 ```bash
 pip install video-transcriber[cuda]
 ```
 
-В конфиге: `device: "cuda"` (или `"auto"` — определит автоматически).
+In config: `device: "cuda"` (or `"auto"` — detects automatically).
 
-## Требования
+## Requirements
 
 - **Python 3.10+**
-- **FFmpeg** — автоматически установится через `install.bat` (winget) или `install.sh` (brew/apt)
-- **NVIDIA GPU** (опционально) — для GPU-ускорения
+- **FFmpeg** — auto-installed via `install.bat` (winget) or `install.sh` (brew/apt)
+- **NVIDIA GPU** (optional) — for GPU acceleration
 
-## Структура проекта
+## Project Structure
 
 ```
 video-transcriber/
 ├── src/video_transcriber/
-│   ├── hardware.py          # детект CPU/RAM/GPU, рекомендация модели
-│   ├── setup_wizard.py      # интерактивный визард первого запуска
-│   ├── autostart.py         # автозапуск (Windows/macOS/Linux)
-│   ├── process_watcher.py   # слежка за процессами (psutil)
-│   ├── screen_recorder.py   # запись экрана (FFmpeg)
-│   ├── config.py            # загрузка конфига (YAML + .env)
-│   ├── watcher.py           # слежка за папкой (watchdog)
+│   ├── hardware.py          # CPU/RAM/GPU detect, model recommendation
+│   ├── setup_wizard.py      # interactive first-run wizard
+│   ├── autostart.py         # autostart (Windows/macOS/Linux)
+│   ├── process_watcher.py   # process monitoring (psutil)
+│   ├── screen_recorder.py   # screen recording (FFmpeg)
+│   ├── config.py            # config loader (YAML + .env)
+│   ├── watcher.py           # folder watching (watchdog)
 │   ├── extractor.py         # FFmpeg → MP3
-│   ├── transcriber.py       # faster-whisper транскрибация
-│   ├── notifier.py          # Telegram уведомления
-│   ├── pipeline.py          # оркестрация пайплайна
-│   └── main.py              # CLI входная точта
-├── menu.bat / menu.sh       # интерактивное меню
-├── install.bat / install.sh # авто-установка
-├── start.bat / start.sh     # быстрый запуск
-├── stop.bat / stop.sh       # остановка
-├── config.example.yaml      # пример конфига
-├── .env.example             # пример секретов
-├── pyproject.toml           # Python-пакет
-├── requirements.txt         # зависимости
+│   ├── transcriber.py       # faster-whisper transcription
+│   ├── notifier.py          # Telegram notifications
+│   ├── pipeline.py          # pipeline orchestration
+│   └── main.py              # CLI entry point
+├── menu.bat / menu.sh       # interactive menu
+├── install.bat / install.sh # auto-installer
+├── start.bat / start.sh     # quick start
+├── stop.bat / stop.sh       # stop service
+├── config.example.yaml      # config example
+├── .env.example             # secrets example
+├── pyproject.toml           # Python package
+├── requirements.txt         # dependencies
 └── LICENSE                  # MIT
 ```
 
-## Лицензия
+## License
 
 MIT
