@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 from .autostart import install_autostart, uninstall_autostart
-from .config import AppConfig, ProcessingConfig, TelegramConfig, TranscriptionConfig, WatchConfig
+from .config import AppConfig, ProcessingConfig, ProcessWatcherConfig, RecorderConfig, TelegramConfig, TranscriptionConfig, WatchConfig
 from .hardware import MODEL_SPECS, HardwareInfo, detect_hardware, print_hardware_report
 
 CONFIG_MARKER = ".setup_done"
@@ -121,8 +121,25 @@ def run_setup_wizard(config_path: Path | None = None) -> AppConfig:
         chat_id = _prompt("Chat ID (from @userinfobot)")
     print()
 
-    # --- Step 6: Autostart ---
-    print("Step 6: Autostart")
+    # --- Step 6: Process Watcher + Screen Recording ---
+    print("Step 6: Process Watcher + Screen Recording")
+    print("  When a specified program starts, the script will automatically")
+    print("  begin screen recording. When the program closes, recording stops")
+    print("  and the transcription pipeline runs automatically.")
+    print()
+    use_process_watcher = _confirm("Enable process watcher (auto-record on program launch)?", default=False)
+    program_names: list[str] = []
+    recorder_fps = 30
+    if use_process_watcher:
+        print("  Enter program names (e.g. Zoom.exe, obs64.exe, chrome.exe)")
+        print("  Separate multiple names with commas")
+        names_input = _prompt("Program names to watch", "Zoom.exe")
+        program_names = [n.strip() for n in names_input.split(",") if n.strip()]
+        recorder_fps = int(_prompt("Recording FPS", "30"))
+    print()
+
+    # --- Step 7: Autostart ---
+    print("Step 7: Autostart")
     print(f"  OS detected: {hw.os_name}")
     autostart = _confirm(
         f"Install Video Transcriber as autostart service on {hw.os_name}?",
@@ -142,6 +159,8 @@ def run_setup_wizard(config_path: Path | None = None) -> AppConfig:
             output_format=chosen_fmt,
         ),
         telegram=TelegramConfig(bot_token=bot_token, chat_id=chat_id),
+        recorder=RecorderConfig(fps=recorder_fps),
+        process_watcher=ProcessWatcherConfig(program_names=program_names),
     )
 
     # --- Save config ---
@@ -165,6 +184,8 @@ def run_setup_wizard(config_path: Path | None = None) -> AppConfig:
             "word_timestamps": cfg.transcription.word_timestamps,
         },
         "telegram": {"bot_token": bot_token, "chat_id": chat_id},
+        "recorder": {"fps": recorder_fps},
+        "process_watcher": {"program_names": program_names, "poll_interval": 5},
     }
 
     with open(config_path, "w", encoding="utf-8") as f:
@@ -200,6 +221,9 @@ def run_setup_wizard(config_path: Path | None = None) -> AppConfig:
     print(f"  Model:           {chosen_model} ({hw.recommended_device})")
     if has_tg:
         print(f"  Telegram:        configured")
+    if use_process_watcher:
+        print(f"  Process watcher: {', '.join(program_names)}")
+        print(f"  Recorder FPS:    {recorder_fps}")
     if autostart:
         print(f"  Autostart:       installed")
     print("=" * 55)

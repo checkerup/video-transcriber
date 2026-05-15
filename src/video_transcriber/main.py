@@ -10,6 +10,8 @@ from .autostart import install_autostart, is_autostart_installed, uninstall_auto
 from .config import load_config
 from .hardware import detect_hardware, print_hardware_report
 from .pipeline import process_video
+from .process_watcher import run_process_watcher
+from .screen_recorder import start_recording, stop_recording
 from .setup_wizard import is_setup_done, run_setup_wizard
 from .watcher import start_watcher
 
@@ -48,6 +50,17 @@ def run_once(config, video_path: str):
 
 
 def run_daemon(config):
+    has_pw = config.process_watcher and config.process_watcher.program_names
+
+    if has_pw:
+        pw_thread = threading.Thread(
+            target=run_process_watcher,
+            args=(config,),
+            daemon=True,
+        )
+        pw_thread.start()
+        logger.info("Process watcher: monitoring %s", config.process_watcher.program_names)
+
     observer = start_watcher(config, lambda p: _on_new_file(p, config), queue, lock)
 
     signal.signal(signal.SIGINT, _signal_handler)
@@ -56,6 +69,8 @@ def run_daemon(config):
     logger.info("Video Transcriber daemon running. Press Ctrl+C to stop.")
     logger.info("Watching: %s", config.watch.folder)
     logger.info("Output: %s", config.processing.output_folder)
+    if has_pw:
+        logger.info("Process watcher: %s", config.process_watcher.program_names)
 
     try:
         while not shutdown_event.is_set():
@@ -66,6 +81,33 @@ def run_daemon(config):
     observer.stop()
     observer.join(timeout=5)
     logger.info("Stopped.")
+
+
+def run_record(config):
+    logger.info("Starting manual screen recording...")
+    output = start_recording(config)
+    if not output:
+        logger.error("Failed to start recording")
+        sys.exit(1)
+
+    logger.info("Recording to: %s", output)
+    logger.info("Press Ctrl+C to stop recording")
+
+    signal.signal(signal.SIGINT, _signal_handler)
+    try:
+        while not shutdown_event.is_set():
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+
+    video_path = stop_recording()
+    if video_path:
+        logger.info("Recording saved: %s", video_path)
+        result = process_video(video_path, config)
+        if result["error"]:
+            logger.error("Pipeline failed: %s", result["error"])
+        else:
+            logger.info("Done. Transcript: %s", result["transcript"])
 
 
 def main():
@@ -79,6 +121,11 @@ def main():
     parser.add_argument("--install-autostart", action="store_true", help="Install as autostart service")
     parser.add_argument("--uninstall-autostart", action="store_true", help="Remove autostart service")
     parser.add_argument("--check-hardware", action="store_true", help="Detect hardware and print report")
+    parser.add_argument("--record", action="store_true", help="Manual screen recording mode (Ctrl+C to stop)")
+    parser.add_argument(
+        "--watch-process", type=str, default=None,
+        help="Watch for process name and auto-record (e.g. 'Zoom.exe')",
+    )
 
     args = parser.parse_args()
 
@@ -112,6 +159,10 @@ def main():
 
     config = load_config(args.config)
 
+    if args.watch_process:
+        config.process_watcher.program_names = [p.strip() for p in args.watch_process.split(",")]
+        logger.info("CLI override: watching processes %s", config.process_watcher.program_names)
+
     hw = detect_hardware()
     logger.info(
         "Hardware: %s, RAM=%.1fGB, GPU=%s, model=%s/%s",
@@ -123,6 +174,8 @@ def main():
 
     if args.file:
         run_once(config, args.file)
+    elif args.record:
+        run_record(config)
     else:
         run_daemon(config)
 

@@ -25,3 +25,11 @@ transcription:
 telegram:
   bot_token: ""
   chat_id: ""
+
+recorder:
+  fps: 30
+  # video_size: "1920x1080"  # only for Linux (x11grab)
+
+process_watcher:
+  program_names: []            # e.g. ["Zoom.exe", "obs64.exe"]
+  poll_interval: 5

@@ -55,11 +55,25 @@ class TelegramConfig:
 
 
 @dataclass
+class RecorderConfig:
+    fps: int = 30
+    video_size: str | None = None
+
+
+@dataclass
+class ProcessWatcherConfig:
+    program_names: list[str] = field(default_factory=list)
+    poll_interval: int = 5
+
+
+@dataclass
 class AppConfig:
     watch: WatchConfig = field(default_factory=WatchConfig)
     processing: ProcessingConfig = field(default_factory=ProcessingConfig)
     transcription: TranscriptionConfig = field(default_factory=TranscriptionConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
+    recorder: RecorderConfig = field(default_factory=RecorderConfig)
+    process_watcher: ProcessWatcherConfig = field(default_factory=ProcessWatcherConfig)
 
 
 def _resolve_device(device: str) -> str:
@@ -89,6 +103,8 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
     proc_raw = raw.get("processing", {})
     trans_raw = raw.get("transcription", {})
     tg_raw = raw.get("telegram", {})
+    rec_raw = raw.get("recorder", {})
+    pw_raw = raw.get("process_watcher", {})
 
     bot_token = tg_raw.get("bot_token", "") or os.getenv("TELEGRAM_BOT_TOKEN", "")
     chat_id = tg_raw.get("chat_id", "") or os.getenv("TELEGRAM_CHAT_ID", "")
@@ -118,6 +134,14 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
         telegram=TelegramConfig(
             bot_token=bot_token,
             chat_id=chat_id,
+        ),
+        recorder=RecorderConfig(
+            fps=rec_raw.get("fps", RecorderConfig.fps),
+            video_size=rec_raw.get("video_size", RecorderConfig.video_size),
+        ),
+        process_watcher=ProcessWatcherConfig(
+            program_names=pw_raw.get("program_names", ProcessWatcherConfig.program_names),
+            poll_interval=pw_raw.get("poll_interval", ProcessWatcherConfig.poll_interval),
         ),
     )
 
