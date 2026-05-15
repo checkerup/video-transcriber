@@ -1,0 +1,38 @@
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Config with secrets
+config.yaml
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Whisper model cache
+*.ct2/
+
+# Setup marker
+.setup_done
+
+# Logs
+*.log
+daemon.log
+daemon_error.log

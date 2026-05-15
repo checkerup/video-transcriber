@@ -1,0 +1,27 @@
+watch:
+  folder: "~/Videos/Incoming"
+  extensions:
+    - .mp4
+    - .mkv
+    - .avi
+    - .mov
+    - .webm
+  delay_seconds: 10
+
+processing:
+  output_folder: "~/Videos/Processed"
+  audio_format: "mp3"
+  audio_bitrate: "192k"
+  keep_audio: true
+
+transcription:
+  model_size: "base"
+  device: "auto"
+  compute_type: "int8"
+  language: "ru"
+  output_format: "txt"
+  word_timestamps: true
+
+telegram:
+  bot_token: ""
+  chat_id: ""

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-transcriber"
+version = "1.0.0"
+description = "Auto-transcribe videos: watch folder, extract audio, transcribe, notify via Telegram"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [{name = "Video Transcriber Contributors"}]
+
+dependencies = [
+    "watchdog>=3.0",
+    "faster-whisper>=1.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+cuda = ["ctranslate2>=4.0", "nvidia-cublas-cu12"]
+dev = ["pytest>=7.0", "ruff>=0.4"]
+
+[project.scripts]
+video-transcriber = "video_transcriber.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
