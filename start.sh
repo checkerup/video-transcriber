@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PYTHONPATH=src
+
 if [ ! -d "venv" ]; then
     echo "[INFO] Virtual environment not found. Automatically running installation..."
     chmod +x install.sh

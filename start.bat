@@ -2,6 +2,8 @@
 chcp 65001 >nul 2>&1
 title Video Transcriber
 
+set PYTHONPATH=src
+
 if not exist "venv" (
     echo [INFO] Virtual environment not found. Automatically running installation...
     call install.bat
