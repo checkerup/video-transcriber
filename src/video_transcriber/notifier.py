@@ -1,3 +1,4 @@
+import html
 import logging
 
 import requests
@@ -25,22 +26,22 @@ def send_notification(
     if error:
         text = (
             f"❌ Ошибка при обработке видео\n\n"
-            f"📁 Файл: `{video_path}`\n"
-            f"⚠️ Ошибка: {error}"
+            f"📁 Файл: <code>{html.escape(video_path)}</code>\n"
+            f"⚠️ Ошибка: {html.escape(error)}"
         )
     else:
         lines = ["✅ Расшифровка готова!\n"]
-        lines.append(f"📁 Видео: `{video_path}`")
+        lines.append(f"📁 Видео: <code>{html.escape(video_path)}</code>")
         if audio_path:
-            lines.append(f"🎵 Аудио: `{audio_path}`")
+            lines.append(f"🎵 Аудио: <code>{html.escape(audio_path)}</code>")
         if transcript_path:
-            lines.append(f"📝 Текст: `{transcript_path}`")
+            lines.append(f"📝 Текст: <code>{html.escape(transcript_path)}</code>")
         text = "\n".join(lines)
 
     payload = {
         "chat_id": config.telegram.chat_id,
         "text": text,
-        "parse_mode": "Markdown",
+        "parse_mode": "HTML",
     }
 
     try:
