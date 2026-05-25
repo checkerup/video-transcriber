@@ -1,3 +1,4 @@
+from typing import Any
 import html
 import logging
 
@@ -12,10 +13,10 @@ _API_BASE = "https://api.telegram.org/bot{token}"
 
 def send_notification(
     config: AppConfig,
-    video_path: str,
-    audio_path: str | None,
-    transcript_path: str | None,
-    error: str | None = None,
+    video_path: Any,
+    audio_path: Any,
+    transcript_path: Any,
+    error: Any = None,
 ) -> bool:
     if not config.telegram.bot_token or not config.telegram.chat_id:
         logger.warning("Telegram not configured — skipping notification")
@@ -23,19 +24,24 @@ def send_notification(
 
     url = _API_BASE.format(token=config.telegram.bot_token) + "/sendMessage"
 
-    if error:
+    video_escaped = html.escape(str(video_path)) if video_path is not None else "Неизвестно"
+    audio_escaped = html.escape(str(audio_path)) if audio_path is not None else None
+    transcript_escaped = html.escape(str(transcript_path)) if transcript_path is not None else None
+    error_escaped = html.escape(str(error)) if error is not None else None
+
+    if error_escaped is not None:
         text = (
-            f"❌ Ошибка при обработке видео\n\n"
-            f"📁 Файл: <code>{html.escape(video_path)}</code>\n"
-            f"⚠️ Ошибка: {html.escape(error)}"
+            f"❌ <b>Ошибка при обработке видео</b>\n\n"
+            f"📁 <b>Файл:</b> <code>{video_escaped}</code>\n"
+            f"⚠️ <b>Ошибка:</b> <code>{error_escaped}</code>"
         )
     else:
-        lines = ["✅ Расшифровка готова!\n"]
-        lines.append(f"📁 Видео: <code>{html.escape(video_path)}</code>")
-        if audio_path:
-            lines.append(f"🎵 Аудио: <code>{html.escape(audio_path)}</code>")
-        if transcript_path:
-            lines.append(f"📝 Текст: <code>{html.escape(transcript_path)}</code>")
+        lines = ["✅ <b>Расшифровка готова!</b>\n"]
+        lines.append(f"📁 <b>Видео:</b> <code>{video_escaped}</code>")
+        if audio_escaped is not None:
+            lines.append(f"🎵 <b>Аудио:</b> <code>{audio_escaped}</code>")
+        if transcript_escaped is not None:
+            lines.append(f"📝 <b>Текст:</b> <code>{transcript_escaped}</code>")
         text = "\n".join(lines)
 
     payload = {
@@ -52,3 +58,4 @@ def send_notification(
     except requests.RequestException as e:
         logger.error("Telegram notification failed: %s", e)
         return False
+
