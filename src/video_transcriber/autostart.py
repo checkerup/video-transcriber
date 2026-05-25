@@ -79,9 +79,7 @@ def _install_macos(config_path: Path | None = None) -> bool:
     python = _get_python_executable()
     workdir = _get_working_dir()
 
-    config_arg = ""
-    if config_path:
-        config_arg = f' --config "{config_path}"'
+    config_str = f"        <string>--config</string>\n        <string>{config_path}</string>\n" if config_path else ""
 
     plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -95,7 +93,7 @@ def _install_macos(config_path: Path | None = None) -> bool:
         <string>{python}</string>
         <string>-m</string>
         <string>video_transcriber.main</string>
-{f'        <string>--config</string>\n        <string>{config_path}</string>\n' if config_path else ''}    </array>
+{config_str}    </array>
     <key>WorkingDirectory</key>
     <string>{workdir}</string>
     <key>RunAtLoad</key>

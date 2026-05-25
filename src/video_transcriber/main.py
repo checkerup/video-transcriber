@@ -36,6 +36,13 @@ def _on_new_file(file_path: str, config):
         logger.exception("Unhandled error processing: %s", file_path)
 
 
+def _enqueue_file(file_path: str):
+    with lock:
+        if file_path not in queue:
+            queue.append(file_path)
+            logger.info("Queued for processing: %s", file_path)
+
+
 def _signal_handler(sig, frame):
     logger.info("Shutdown signal received (%s)", sig)
     shutdown_event.set()
@@ -46,18 +53,14 @@ def queue_worker(queue: list[str], lock: threading.Lock, config, callback):
         file_path = None
         with lock:
             if queue:
-                file_path = queue[0]
+                file_path = queue.pop(0)
         if file_path:
             try:
                 callback(file_path, config)
             except Exception:
                 logger.exception("Error processing queued file: %s", file_path)
-            finally:
-                with lock:
-                    if file_path in queue:
-                        queue.remove(file_path)
         else:
-            time.sleep(1)
+            time.sleep(0.1)
 
 
 def run_once(config, video_path: str):
@@ -74,7 +77,7 @@ def run_daemon(config):
     if has_pw:
         pw_thread = threading.Thread(
             target=run_process_watcher,
-            args=(config,),
+            args=(config, _enqueue_file),
             daemon=True,
         )
         pw_thread.start()
@@ -88,7 +91,7 @@ def run_daemon(config):
     )
     worker_thread.start()
 
-    observer = start_watcher(config, lambda p: _on_new_file(p, config), queue, lock)
+    observer = start_watcher(config, queue, lock)
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
@@ -107,6 +110,7 @@ def run_daemon(config):
 
     observer.stop()
     observer.join(timeout=5)
+    worker_thread.join(timeout=5)
     logger.info("Stopped.")
 
 

@@ -13,10 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class VideoFileHandler(FileSystemEventHandler):
-    def __init__(self, config: AppConfig, callback, queue: list[str], lock: threading.Lock):
+    def __init__(self, config: AppConfig, queue: list[str], lock: threading.Lock):
         super().__init__()
         self.config = config
-        self.callback = callback
         self.queue = queue
         self.lock = lock
         self._timers: dict[str, threading.Timer] = {}
@@ -81,11 +80,11 @@ class VideoFileHandler(FileSystemEventHandler):
         return False
 
 
-def start_watcher(config: AppConfig, callback, queue: list[str], lock: threading.Lock) -> Observer:
+def start_watcher(config: AppConfig, queue: list[str], lock: threading.Lock) -> Observer:
     watch_dir = Path(config.watch.folder)
     watch_dir.mkdir(parents=True, exist_ok=True)
 
-    handler = VideoFileHandler(config, callback, queue, lock)
+    handler = VideoFileHandler(config, queue, lock)
     observer = Observer()
     observer.schedule(handler, str(watch_dir), recursive=False)
     observer.daemon = True

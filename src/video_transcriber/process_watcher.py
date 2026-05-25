@@ -75,11 +75,14 @@ def watch_processes(config: AppConfig, on_recording_done=None) -> None:
         time.sleep(poll_interval)
 
 
-def run_process_watcher(config: AppConfig) -> None:
-    def _on_recording_done(video_path: str):
-        try:
-            process_video(video_path, config)
-        except Exception:
-            logger.exception("Pipeline failed for recorded video: %s", video_path)
+def run_process_watcher(config: AppConfig, on_recording_done=None) -> None:
+    if on_recording_done is None:
+        def _on_recording_done(video_path: str):
+            try:
+                # Note: this will become process_file in Task 7
+                process_video(video_path, config)
+            except Exception:
+                logger.exception("Pipeline failed for recorded video: %s", video_path)
+        on_recording_done = _on_recording_done
 
-    watch_processes(config, on_recording_done=_on_recording_done)
+    watch_processes(config, on_recording_done=on_recording_done)
