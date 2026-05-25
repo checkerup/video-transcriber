@@ -56,7 +56,7 @@ def test_run_process_watcher_routes_callback(monkeypatch):
     config = AppConfig()
     passed_callback = None
     
-    def mock_watch_processes(cfg, on_recording_done=None):
+    def mock_watch_processes(cfg, on_recording_done=None, *args, **kwargs):
         nonlocal passed_callback
         passed_callback = on_recording_done
         
@@ -89,3 +89,63 @@ def test_enqueue_file():
     # Clean up
     with lock:
         queue.clear()
+
+
+def test_video_file_handler_cleanup():
+    from video_transcriber.config import AppConfig
+    from video_transcriber.watcher import VideoFileHandler
+    import threading
+    
+    lock = threading.Lock()
+    queue = []
+    config = AppConfig()
+    handler = VideoFileHandler(config, queue, lock)
+    handler._is_file_stable = lambda file_path: True
+    
+    # We trigger on_created with a mock event
+    class MockEvent:
+        is_directory = False
+        src_path = "test_video.mp4"
+        
+    # We need to make sure the extension is valid
+    config.watch.extensions = [".mp4"]
+    config.watch.delay_seconds = 60.0  # long delay so it doesn't fire immediately
+    
+    handler.on_created(MockEvent())
+    
+    # Assert a timer was created and is in self._timers
+    assert len(handler._timers) == 1
+    timer = list(handler._timers.values())[0]
+    assert timer.is_alive()
+    
+    # Run cleanup
+    handler.cleanup()
+    
+    # Assert timers are cancelled and dict is cleared
+    assert len(handler._timers) == 0
+
+
+def test_watch_processes_graceful_shutdown():
+    from video_transcriber.process_watcher import watch_processes
+    from video_transcriber.config import AppConfig
+    import threading
+    import time
+    
+    config = AppConfig()
+    # Mock config.process_watcher
+    class MockProcessWatcherConfig:
+        program_names = ["test_process.exe"]
+        poll_interval = 10
+        
+    config.process_watcher = MockProcessWatcherConfig()
+    
+    stop_event = threading.Event()
+    stop_event.set()  # set immediately so it exits the loop right away
+    
+    # This should return immediately because stop_event is set
+    start_time = time.time()
+    watch_processes(config, stop_event=stop_event)
+    duration = time.time() - start_time
+    
+    # Assert it exited immediately (much less than poll_interval of 10)
+    assert duration < 2.0

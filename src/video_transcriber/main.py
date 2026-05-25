@@ -77,7 +77,7 @@ def run_daemon(config):
     if has_pw:
         pw_thread = threading.Thread(
             target=run_process_watcher,
-            args=(config, _enqueue_file),
+            args=(config, _enqueue_file, shutdown_event),
             daemon=True,
         )
         pw_thread.start()
@@ -91,7 +91,7 @@ def run_daemon(config):
     )
     worker_thread.start()
 
-    observer = start_watcher(config, queue, lock)
+    observer, handler = start_watcher(config, queue, lock)
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
@@ -109,6 +109,7 @@ def run_daemon(config):
         logger.info("Keyboard interrupt received")
 
     observer.stop()
+    handler.cleanup()
     observer.join(timeout=5)
     worker_thread.join(timeout=5)
     logger.info("Stopped.")

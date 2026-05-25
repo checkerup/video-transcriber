@@ -34,7 +34,7 @@ def _find_process_by_names(names: list[str]) -> str | None:
     return None
 
 
-def watch_processes(config: AppConfig, on_recording_done=None) -> None:
+def watch_processes(config: AppConfig, on_recording_done=None, stop_event: threading.Event | None = None) -> None:
     proc_cfg = getattr(config, "process_watcher", None)
     if not proc_cfg or not proc_cfg.program_names:
         logger.error("No process names configured for watching")
@@ -47,7 +47,7 @@ def watch_processes(config: AppConfig, on_recording_done=None) -> None:
 
     was_running = False
 
-    while True:
+    while not (stop_event and stop_event.is_set()):
         found = _find_process_by_names(programs)
 
         if found and not was_running:
@@ -72,10 +72,13 @@ def watch_processes(config: AppConfig, on_recording_done=None) -> None:
 
             was_running = False
 
-        time.sleep(poll_interval)
+        for _ in range(poll_interval):
+            if stop_event and stop_event.is_set():
+                break
+            time.sleep(1)
 
 
-def run_process_watcher(config: AppConfig, on_recording_done=None) -> None:
+def run_process_watcher(config: AppConfig, on_recording_done=None, stop_event: threading.Event | None = None) -> None:
     if on_recording_done is None:
         def _on_recording_done(video_path: str):
             try:
@@ -85,4 +88,4 @@ def run_process_watcher(config: AppConfig, on_recording_done=None) -> None:
                 logger.exception("Pipeline failed for recorded video: %s", video_path)
         on_recording_done = _on_recording_done
 
-    watch_processes(config, on_recording_done=on_recording_done)
+    watch_processes(config, on_recording_done=on_recording_done, stop_event=stop_event)

@@ -19,6 +19,7 @@ class VideoFileHandler(FileSystemEventHandler):
         self.queue = queue
         self.lock = lock
         self._timers: dict[str, threading.Timer] = {}
+        self._timers_lock = threading.Lock()
 
     def on_created(self, event):
         if event.is_directory:
@@ -30,8 +31,9 @@ class VideoFileHandler(FileSystemEventHandler):
 
         logger.info("Detected new file: %s", src_path)
 
-        if src_path.name in self._timers:
-            self._timers[src_path.name].cancel()
+        with self._timers_lock:
+            if src_path.name in self._timers:
+                self._timers[src_path.name].cancel()
 
         timer = threading.Timer(
             self.config.watch.delay_seconds,
@@ -39,11 +41,13 @@ class VideoFileHandler(FileSystemEventHandler):
             args=[str(src_path)],
         )
         timer.daemon = True
-        self._timers[src_path.name] = timer
+        with self._timers_lock:
+            self._timers[src_path.name] = timer
         timer.start()
 
     def _process_after_delay(self, file_path: str):
-        self._timers.pop(Path(file_path).name, None)
+        with self._timers_lock:
+            self._timers.pop(Path(file_path).name, None)
 
         if not self._is_file_stable(file_path):
             logger.warning("File not stable yet, re-queuing: %s", file_path)
@@ -53,7 +57,8 @@ class VideoFileHandler(FileSystemEventHandler):
                 args=[file_path],
             )
             timer.daemon = True
-            self._timers[Path(file_path).name] = timer
+            with self._timers_lock:
+                self._timers[Path(file_path).name] = timer
             timer.start()
             return
 
@@ -61,6 +66,12 @@ class VideoFileHandler(FileSystemEventHandler):
             if file_path not in self.queue:
                 self.queue.append(file_path)
                 logger.info("Queued for processing: %s", file_path)
+
+    def cleanup(self):
+        with self._timers_lock:
+            for timer in self._timers.values():
+                timer.cancel()
+            self._timers.clear()
 
     @staticmethod
     def _is_file_stable(file_path: str, check_interval: float = 1.0, max_waits: int = 30) -> bool:
@@ -80,7 +91,7 @@ class VideoFileHandler(FileSystemEventHandler):
         return False
 
 
-def start_watcher(config: AppConfig, queue: list[str], lock: threading.Lock) -> Observer:
+def start_watcher(config: AppConfig, queue: list[str], lock: threading.Lock) -> tuple[Observer, VideoFileHandler]:
     watch_dir = Path(config.watch.folder)
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -90,4 +101,4 @@ def start_watcher(config: AppConfig, queue: list[str], lock: threading.Lock) -> 
     observer.daemon = True
     observer.start()
     logger.info("Watching folder: %s", watch_dir)
-    return observer
+    return observer, handler
