@@ -122,7 +122,7 @@ python -m pip install --upgrade pip
 
 :: Detect Nvidia GPU
 nvidia-smi >nul 2>&1
-if %ERRORLEVEL% eq 0 (
+if %ERRORLEVEL% == 0 (
     echo [INFO] NVIDIA GPU detected via nvidia-smi. Installing dependencies with CUDA support...
     pip install -e .[cuda]
 ) else (
