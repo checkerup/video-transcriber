@@ -67,8 +67,9 @@ class VideoFileHandler(FileSystemEventHandler):
             return
 
         with self._timers_lock:
-            if self._timers.get(Path(file_path).name) is current_timer:
-                self._timers.pop(Path(file_path).name, None)
+            if self._timers.get(Path(file_path).name) is not current_timer:
+                return
+            self._timers.pop(Path(file_path).name, None)
 
         with self.lock:
             if file_path not in self.queue:

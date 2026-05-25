@@ -202,3 +202,28 @@ def test_watch_processes_graceful_shutdown_while_recording(monkeypatch):
     
     assert start_recording_called is True
     assert stop_recording_called is True
+
+
+def test_superseded_timer_not_queued():
+    lock = threading.Lock()
+    queue = []
+    config = AppConfig()
+    handler = VideoFileHandler(config, queue, lock)
+    handler._is_file_stable = lambda file_path: True
+
+    # Register a dummy timer (not the current thread) as the active timer for the file
+    class DummyTimer:
+        pass
+    dummy_timer = DummyTimer()
+    with handler._timers_lock:
+        handler._timers["superseded.mp4"] = dummy_timer
+
+    # Call _process_after_delay. Since current_thread is NOT dummy_timer, it should return early
+    handler._process_after_delay("superseded.mp4")
+
+    # Assert it was not added to the queue
+    assert "superseded.mp4" not in queue
+    with handler._timers_lock:
+        # Check that the timer list was NOT modified (dummy_timer is still in timers)
+        assert handler._timers.get("superseded.mp4") is dummy_timer
+

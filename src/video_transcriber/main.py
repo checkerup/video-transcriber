@@ -111,9 +111,9 @@ def run_daemon(config):
     observer.stop()
     handler.cleanup()
     observer.join(timeout=5)
-    worker_thread.join(timeout=5)
     if has_pw:
         pw_thread.join(timeout=5)
+    worker_thread.join(timeout=5)
     logger.info("Stopped.")
 
 
