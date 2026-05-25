@@ -159,6 +159,10 @@ def main():
 
     config = load_config(args.config)
 
+    # Ensure watch and output folders exist
+    Path(config.watch.folder).mkdir(parents=True, exist_ok=True)
+    Path(config.processing.output_folder).mkdir(parents=True, exist_ok=True)
+
     if args.watch_process:
         config.process_watcher.program_names = [p.strip() for p in args.watch_process.split(",")]
         logger.info("CLI override: watching processes %s", config.process_watcher.program_names)
