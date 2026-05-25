@@ -62,7 +62,6 @@ class VideoFileHandler(FileSystemEventHandler):
             if file_path not in self.queue:
                 self.queue.append(file_path)
                 logger.info("Queued for processing: %s", file_path)
-                threading.Thread(target=self.callback, args=(file_path,), daemon=True).start()
 
     @staticmethod
     def _is_file_stable(file_path: str, check_interval: float = 1.0, max_waits: int = 30) -> bool:

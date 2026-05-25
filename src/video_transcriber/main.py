@@ -41,6 +41,25 @@ def _signal_handler(sig, frame):
     shutdown_event.set()
 
 
+def queue_worker(queue: list[str], lock: threading.Lock, config, callback):
+    while not shutdown_event.is_set():
+        file_path = None
+        with lock:
+            if queue:
+                file_path = queue[0]
+        if file_path:
+            try:
+                callback(file_path, config)
+            except Exception:
+                logger.exception("Error processing queued file: %s", file_path)
+            finally:
+                with lock:
+                    if file_path in queue:
+                        queue.remove(file_path)
+        else:
+            time.sleep(1)
+
+
 def run_once(config, video_path: str):
     result = process_video(video_path, config)
     if result["error"]:
@@ -60,6 +79,14 @@ def run_daemon(config):
         )
         pw_thread.start()
         logger.info("Process watcher: monitoring %s", config.process_watcher.program_names)
+
+    # Start queue worker thread
+    worker_thread = threading.Thread(
+        target=queue_worker,
+        args=(queue, lock, config, _on_new_file),
+        daemon=True
+    )
+    worker_thread.start()
 
     observer = start_watcher(config, lambda p: _on_new_file(p, config), queue, lock)
 
