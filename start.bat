@@ -3,9 +3,8 @@ chcp 65001 >nul 2>&1
 title Video Transcriber
 
 if not exist "venv" (
-    echo [ERROR] venv not found. Run install.bat first.
-    pause
-    exit /b 1
+    echo [INFO] Virtual environment not found. Automatically running installation...
+    call install.bat
 )
 
 call venv\Scripts\activate.bat

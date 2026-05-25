@@ -2,8 +2,9 @@
 set -euo pipefail
 
 if [ ! -d "venv" ]; then
-    echo "[ERROR] venv not found. Run ./install.sh first."
-    exit 1
+    echo "[INFO] Virtual environment not found. Automatically running installation..."
+    chmod +x install.sh
+    ./install.sh
 fi
 
 source venv/bin/activate

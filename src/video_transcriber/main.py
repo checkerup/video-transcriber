@@ -9,7 +9,7 @@ from pathlib import Path
 from .autostart import install_autostart, is_autostart_installed, uninstall_autostart
 from .config import load_config
 from .hardware import detect_hardware, print_hardware_report
-from .pipeline import process_video
+from .pipeline import process_file
 from .process_watcher import run_process_watcher
 from .screen_recorder import start_recording, stop_recording
 from .setup_wizard import is_setup_done, run_setup_wizard
@@ -31,7 +31,7 @@ shutdown_event = threading.Event()
 
 def _on_new_file(file_path: str, config):
     try:
-        process_video(file_path, config)
+        process_file(file_path, config)
     except Exception:
         logger.exception("Unhandled error processing: %s", file_path)
 
@@ -64,7 +64,7 @@ def queue_worker(queue: list[str], lock: threading.Lock, config, callback):
 
 
 def run_once(config, video_path: str):
-    result = process_video(video_path, config)
+    result = process_file(video_path, config)
     if result["error"]:
         logger.error("Failed: %s", result["error"])
         sys.exit(1)
@@ -137,7 +137,7 @@ def run_record(config):
     video_path = stop_recording()
     if video_path:
         logger.info("Recording saved: %s", video_path)
-        result = process_video(video_path, config)
+        result = process_file(video_path, config)
         if result["error"]:
             logger.error("Pipeline failed: %s", result["error"])
         else:
@@ -159,6 +159,34 @@ def main():
     parser.add_argument(
         "--watch-process", type=str, default=None,
         help="Watch for process name and auto-record (e.g. 'Zoom.exe')",
+    )
+    parser.add_argument(
+        "--convert-mp3", nargs="+", type=str, default=None,
+        help="Convert specified video file(s) to MP3",
+    )
+    parser.add_argument(
+        "--silence-removal", action="store_true", default=None,
+        help="Enable silence removal via FFmpeg",
+    )
+    parser.add_argument(
+        "--no-silence-removal", action="store_true", default=None,
+        help="Disable silence removal via FFmpeg",
+    )
+    parser.add_argument(
+        "--translate-to", type=str, default=None,
+        help="Translate transcript to specified language (e.g. 'ru')",
+    )
+    parser.add_argument(
+        "--clean-paragraphs", action="store_true", default=None,
+        help="Format output as clean paragraphs without timestamps",
+    )
+    parser.add_argument(
+        "--summarize", action="store_true", default=None,
+        help="Enable AI summarization using Gemini",
+    )
+    parser.add_argument(
+        "--no-summarize", action="store_true", default=None,
+        help="Disable AI summarization",
     )
 
     args = parser.parse_args()
@@ -200,6 +228,34 @@ def main():
     if args.watch_process:
         config.process_watcher.program_names = [p.strip() for p in args.watch_process.split(",")]
         logger.info("CLI override: watching processes %s", config.process_watcher.program_names)
+
+    if args.silence_removal is True:
+        config.processing.silence_removal = True
+    elif args.no_silence_removal is True:
+        config.processing.silence_removal = False
+
+    if args.translate_to is not None:
+        config.transcription.translate_to = args.translate_to
+
+    if args.clean_paragraphs is True:
+        config.transcription.clean_paragraphs = True
+
+    if args.summarize is True:
+        config.summarization.enabled = True
+    elif args.no_summarize is True:
+        config.summarization.enabled = False
+
+    if args.convert_mp3:
+        from .extractor import convert_video_to_mp3
+        for file_path in args.convert_mp3:
+            logger.info("Converting file to MP3: %s", file_path)
+            try:
+                out = convert_video_to_mp3(file_path, config)
+                logger.info("Successfully converted to MP3: %s", out)
+            except Exception as e:
+                logger.error("Failed to convert %s to MP3: %s", file_path, e)
+                sys.exit(1)
+        return
 
     hw = detect_hardware()
     logger.info(

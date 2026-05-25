@@ -52,7 +52,15 @@ source venv/bin/activate
 # --- Install dependencies ---
 echo "Installing Python dependencies..."
 pip install --upgrade pip
-pip install -e .
+
+# Detect Nvidia GPU
+if command -v nvidia-smi &>/dev/null; then
+    echo "[INFO] NVIDIA GPU detected via nvidia-smi. Installing dependencies with CUDA support..."
+    pip install -e .[cuda]
+else
+    echo "[INFO] No NVIDIA GPU detected. Installing standard dependencies..."
+    pip install -e .
+fi
 
 # --- Config ---
 if [ ! -f "config.yaml" ]; then

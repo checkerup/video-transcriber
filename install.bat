@@ -10,28 +10,95 @@ echo.
 :: --- Python ---
 where python >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Python not found. Install Python 3.10+ from https://python.org
-    echo         Make sure to check "Add Python to PATH" during installation.
+    echo Python not in PATH. Searching standard directories...
+    :: Scan User AppData folder
+    for /d %%d in ("%USERPROFILE%\AppData\Local\Programs\Python\Python*") do (
+        if exist "%%d\python.exe" (
+            set "PATH=%%d;%%d\Scripts;%PATH%"
+            echo Found Python in User AppData: %%d
+            goto :python_found
+        )
+    )
+    :: Scan Program Files
+    for /d %%d in ("C:\Program Files\Python*") do (
+        if exist "%%d\python.exe" (
+            set "PATH=%%d;%%d\Scripts;%PATH%"
+            echo Found Python in Program Files: %%d
+            goto :python_found
+        )
+    )
+    
+    echo Python not found. Installing Python 3.12 via winget...
+    winget install Python.Python.3.12 --accept-source-agreements --accept-package-agreements
+    if %ERRORLEVEL% neq 0 (
+        echo [ERROR] Python 3.12 installation failed. Please install it manually from https://python.org
+        pause
+        exit /b 1
+    )
+    
+    :: Add installed Python path to local PATH environment variable
+    for /d %%d in ("%USERPROFILE%\AppData\Local\Programs\Python\Python*") do (
+        if exist "%%d\python.exe" (
+            set "PATH=%%d;%%d\Scripts;%PATH%"
+            echo Python path added: %%d
+            goto :python_found
+        )
+    )
+    for /d %%d in ("C:\Program Files\Python*") do (
+        if exist "%%d\python.exe" (
+            set "PATH=%%d;%%d\Scripts;%PATH%"
+            echo Python path added: %%d
+            goto :python_found
+        )
+    )
+    
+    echo [ERROR] Python was installed but python.exe was not found in standard paths. Please restart or check manually.
     pause
     exit /b 1
 )
-
+:python_found
 python --version
 echo.
 
 :: --- FFmpeg ---
 where ffmpeg >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [WARN] FFmpeg not found. Installing via winget...
-    winget install FFmpeg --accept-source-agreements --accept-package-agreements
-    if %ERRORLEVEL% neq 0 (
-        echo [ERROR] FFmpeg install failed. Install manually from https://ffmpeg.org/download.html
-        pause
-        exit /b 1
+    echo FFmpeg not found in PATH. Checking standard winget install path...
+    if exist "%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*" (
+        for /d %%d in ("%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*") do (
+            if exist "%%d\ffmpeg.exe" (
+                set "PATH=%%d;%PATH%"
+                echo Found FFmpeg in Gyan.FFmpeg: %%d
+                goto :ffmpeg_found
+            )
+            if exist "%%d\bin\ffmpeg.exe" (
+                set "PATH=%%d\bin;%PATH%"
+                echo Found FFmpeg in Gyan.FFmpeg bin: %%d\bin
+                goto :ffmpeg_found
+            )
+        )
     )
-    echo FFmpeg installed. Refreshing PATH...
+    
+    echo FFmpeg not found. Installing Gyan.FFmpeg via winget...
+    winget install Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
+    if %ERRORLEVEL% neq 0 (
+        echo [WARN] Gyan.FFmpeg install failed. Trying alternate FFmpeg package...
+        winget install FFmpeg --accept-source-agreements --accept-package-agreements
+    )
+    
+    for /d %%d in ("%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*") do (
+        if exist "%%d\ffmpeg.exe" (
+            set "PATH=%%d;%PATH%"
+            goto :ffmpeg_found
+        )
+        if exist "%%d\bin\ffmpeg.exe" (
+            set "PATH=%%d\bin;%PATH%"
+            goto :ffmpeg_found
+        )
+    )
     set "PATH=%PATH%;C:\Program Files\FFmpeg\bin"
 )
+:ffmpeg_found
 echo FFmpeg: found
 echo.
 
@@ -51,8 +118,18 @@ call venv\Scripts\activate.bat
 
 :: --- Install dependencies ---
 echo Installing Python dependencies...
-pip install --upgrade pip
-pip install -e .
+python -m pip install --upgrade pip
+
+:: Detect Nvidia GPU
+nvidia-smi >nul 2>&1
+if %ERRORLEVEL% eq 0 (
+    echo [INFO] NVIDIA GPU detected via nvidia-smi. Installing dependencies with CUDA support...
+    pip install -e .[cuda]
+) else (
+    echo [INFO] No NVIDIA GPU detected. Installing standard dependencies...
+    pip install -e .
+)
+
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] pip install failed
     pause

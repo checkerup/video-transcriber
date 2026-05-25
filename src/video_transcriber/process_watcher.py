@@ -5,7 +5,7 @@ import time
 import psutil
 
 from .config import AppConfig
-from .pipeline import process_video
+from .pipeline import process_file
 from .screen_recorder import is_recording, start_recording, stop_recording
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def run_process_watcher(config: AppConfig, on_recording_done=None, stop_event: t
         def _on_recording_done(video_path: str):
             try:
                 # Note: this will become process_file in Task 7
-                process_video(video_path, config)
+                process_file(video_path, config)
             except Exception:
                 logger.exception("Pipeline failed for recorded video: %s", video_path)
         on_recording_done = _on_recording_done
