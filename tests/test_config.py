@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from video_transcriber.config import load_config, AppConfig
+from video_transcriber.config import load_config, AppConfig, _as_bool, _as_int, _as_list
 
 def test_expand_user_paths(tmp_path, monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
@@ -155,3 +155,75 @@ def test_non_dict_nested_sections(tmp_path, monkeypatch):
     assert cfg.recorder.fps == 30
     assert cfg.process_watcher.poll_interval == 5
 
+
+def test_as_bool():
+    # True values
+    assert _as_bool("true", False) is True
+    assert _as_bool("1", False) is True
+    assert _as_bool("yes", False) is True
+    assert _as_bool("on", False) is True
+    assert _as_bool("  TRUE  ", False) is True
+    assert _as_bool(True, False) is True
+    assert _as_bool(123, False) is True
+
+    # False values
+    assert _as_bool("false", True) is False
+    assert _as_bool("0", True) is False
+    assert _as_bool("no", True) is False
+    assert _as_bool("off", True) is False
+    assert _as_bool("  FALSE  ", True) is False
+    assert _as_bool(False, True) is False
+    assert _as_bool(0, True) is False
+
+    # Default values on None
+    assert _as_bool(None, True) is True
+    assert _as_bool(None, False) is False
+
+
+def test_as_int():
+    # Valid conversions
+    assert _as_int("123", 10) == 123
+    assert _as_int(45, 10) == 45
+    assert _as_int(12.34, 10) == 12
+
+    # Invalid conversions falling back to default
+    assert _as_int("abc", 10) == 10
+    assert _as_int(None, 10) == 10
+    assert _as_int([], 10) == 10
+    assert _as_int({}, 10) == 10
+
+
+def test_as_list():
+    # List conversion
+    assert _as_list(["a", "b", 123], ["default"]) == ["a", "b", "123"]
+    # String conversion
+    assert _as_list("a, b, c", ["default"]) == ["a", "b", "c"]
+    # String with empty elements
+    assert _as_list("a,, b, ,c", ["default"]) == ["a", "b", "c"]
+    # None fallback
+    assert _as_list(None, ["default"]) == ["default"]
+    # Invalid type fallback
+    assert _as_list(123, ["default"]) == ["default"]
+
+
+def test_malformed_yaml(tmp_path, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+
+    # Completely malformed YAML that will fail yaml.safe_load
+    config_content = """
+    watch:
+      [invalid yaml
+      - {
+    """
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(config_content)
+
+    # Should not raise exception and return default AppConfig
+    cfg = load_config(cfg_file, load_env=False)
+    assert isinstance(cfg, AppConfig)
+    assert cfg.watch.delay_seconds == 10
+    assert cfg.processing.keep_audio is True
+    assert cfg.transcription.word_timestamps is True
+    assert cfg.recorder.fps == 30
+    assert cfg.process_watcher.poll_interval == 5

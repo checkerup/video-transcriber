@@ -85,6 +85,35 @@ def _resolve_device(device: str) -> str:
         return "cpu"
 
 
+def _as_bool(val, default: bool) -> bool:
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "yes", "on")
+    return bool(val)
+
+
+def _as_int(val, default: int) -> int:
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
+def _as_list(val, default: list) -> list:
+    if val is None:
+        return default
+    if isinstance(val, str):
+        return [item.strip() for item in val.split(",") if item.strip()]
+    if isinstance(val, list):
+        return [str(item).strip() for item in val]
+    return default
+
+
 def _get_dict_section(raw: dict, name: str) -> dict:
     section = raw.get(name)
     return section if isinstance(section, dict) else {}
@@ -103,7 +132,10 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
     raw: dict = {}
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
-            raw = yaml.safe_load(f)
+            try:
+                raw = yaml.safe_load(f)
+            except Exception:
+                raw = {}
             if not isinstance(raw, dict):
                 raw = {}
 
@@ -128,25 +160,16 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
     watch_folder = os.path.expanduser(watch_raw.get("folder") or default_watch.folder)
     output_folder = os.path.expanduser(proc_raw.get("output_folder") or default_proc.output_folder)
 
-    delay_val = watch_raw.get("delay_seconds")
-    delay_seconds = int(delay_val) if delay_val is not None else default_watch.delay_seconds
-
-    keep_audio_val = proc_raw.get("keep_audio")
-    keep_audio = bool(keep_audio_val) if keep_audio_val is not None else default_proc.keep_audio
-
-    word_timestamps_val = trans_raw.get("word_timestamps")
-    word_timestamps = bool(word_timestamps_val) if word_timestamps_val is not None else default_trans.word_timestamps
-
-    fps_val = rec_raw.get("fps")
-    fps = int(fps_val) if fps_val is not None else default_rec.fps
-
-    poll_interval_val = pw_raw.get("poll_interval")
-    poll_interval = int(poll_interval_val) if poll_interval_val is not None else default_pw.poll_interval
+    delay_seconds = _as_int(watch_raw.get("delay_seconds"), default_watch.delay_seconds)
+    keep_audio = _as_bool(proc_raw.get("keep_audio"), default_proc.keep_audio)
+    word_timestamps = _as_bool(trans_raw.get("word_timestamps"), default_trans.word_timestamps)
+    fps = _as_int(rec_raw.get("fps"), default_rec.fps)
+    poll_interval = _as_int(pw_raw.get("poll_interval"), default_pw.poll_interval)
 
     cfg = AppConfig(
         watch=WatchConfig(
             folder=watch_folder,
-            extensions=watch_raw.get("extensions") or default_watch.extensions,
+            extensions=_as_list(watch_raw.get("extensions"), default_watch.extensions),
             delay_seconds=delay_seconds,
         ),
         processing=ProcessingConfig(
@@ -172,7 +195,7 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
             video_size=rec_raw.get("video_size") if rec_raw.get("video_size") is not None else default_rec.video_size,
         ),
         process_watcher=ProcessWatcherConfig(
-            program_names=pw_raw.get("program_names") if pw_raw.get("program_names") is not None else default_pw.program_names,
+            program_names=_as_list(pw_raw.get("program_names"), default_pw.program_names),
             poll_interval=poll_interval,
         ),
     )
