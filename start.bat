@@ -7,6 +7,13 @@ set PYTHONPATH=src
 if not exist "venv" (
     echo [INFO] Virtual environment not found. Automatically running installation...
     call install.bat
+) else (
+    call venv\Scripts\activate.bat
+    python -c "import yaml, watchdog, requests" >nul 2>&1
+    if errorlevel 1 (
+        echo [WARN] Missing required Python packages. Automatically running repair/installation...
+        call install.bat
+    )
 )
 
 call venv\Scripts\activate.bat

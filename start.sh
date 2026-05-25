@@ -7,6 +7,13 @@ if [ ! -d "venv" ]; then
     echo "[INFO] Virtual environment not found. Automatically running installation..."
     chmod +x install.sh
     ./install.sh
+else
+    source venv/bin/activate
+    if ! python3 -c "import yaml, watchdog, requests" &>/dev/null; then
+        echo "[WARN] Missing required Python packages. Automatically running repair/installation..."
+        chmod +x install.sh
+        ./install.sh
+    fi
 fi
 
 source venv/bin/activate
