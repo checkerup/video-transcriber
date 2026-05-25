@@ -85,9 +85,10 @@ def _resolve_device(device: str) -> str:
         return "cpu"
 
 
-def load_config(config_path: str | Path | None = None) -> AppConfig:
+def load_config(config_path: str | Path | None = None, load_env: bool = True) -> AppConfig:
     project_root = Path(__file__).resolve().parent.parent.parent
-    load_dotenv(project_root / ".env")
+    if load_env:
+        load_dotenv(project_root / ".env")
 
     if config_path is None:
         config_path = Path(__file__).resolve().parent.parent.parent / "config.yaml"
@@ -97,7 +98,9 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
     raw: dict = {}
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
-            raw = yaml.safe_load(f) or {}
+            raw = yaml.safe_load(f)
+            if not isinstance(raw, dict):
+                raw = {}
 
     watch_raw = raw.get("watch") or {}
     proc_raw = raw.get("processing") or {}
