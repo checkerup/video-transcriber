@@ -225,6 +225,32 @@ The model downloads **once** automatically on first run. All OpenAI Whisper mode
 | macOS | LaunchAgent | `~/Library/LaunchAgents/com.video-transcriber.plist` |
 | Linux | systemd user service | `~/.config/systemd/user/video-transcriber.service` |
 
+## AI Summarization (Gemini)
+
+You can enable automatic transcription summarization and chapter generation using the Gemini API. The summary will be saved to `{filename}_summary.md` and sent to your Telegram bot.
+
+To enable it, set `summarization.enabled: true` in `config.yaml` and provide your `api_key`.
+
+### Changing the Model
+You can change the `summarization.model` parameter in `config.yaml` (e.g. to `gemini-1.5-pro` or `gemini-2.0-flash-exp`) or override it via CLI:
+```bash
+python -m video_transcriber.main --summarize --summarization-model "gemini-1.5-pro"
+```
+
+### Changing the Prompt
+You can customize the prompt sent to Gemini by editing the `summarization.prompt` option in `config.yaml` or using the `--summarization-prompt` CLI option.
+
+Use the `{text}` placeholder within your prompt to specify where the transcription text should be injected. For example:
+```yaml
+summarization:
+  enabled: true
+  api_key: "your_api_key"
+  model: "gemini-1.5-flash"
+  prompt: "Read the following transcription and summarize the main decisions in English: {text}"
+```
+
+If the prompt does not contain the `{text}` placeholder, the transcription text will automatically be appended to the end of the prompt.
+
 ## CUDA (GPU Acceleration)
 
 The script auto-detects NVIDIA GPU via `torch.cuda` or `nvidia-smi`. If CUDA is available — transcription runs on GPU (3-10x faster than CPU).

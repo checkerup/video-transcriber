@@ -74,6 +74,7 @@ class SummarizationConfig:
     provider: str = "gemini"
     api_key: str = ""
     model: str = "gemini-1.5-flash"
+    prompt: str = ""
 
 
 @dataclass
@@ -223,6 +224,7 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
             provider=str(sum_raw.get("provider") or default_sum.provider),
             api_key=str(sum_raw.get("api_key") or os.getenv("GEMINI_API_KEY") or default_sum.api_key or ""),
             model=str(sum_raw.get("model") or default_sum.model),
+            prompt=str(sum_raw.get("prompt") or default_sum.prompt),
         ),
     )
 

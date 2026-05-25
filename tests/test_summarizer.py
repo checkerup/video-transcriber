@@ -89,3 +89,47 @@ def test_generate_summary_http_error(mock_post):
 
     result = generate_summary("transcript", config)
     assert result == ""
+
+
+@patch("requests.post")
+def test_generate_summary_custom_prompt(mock_post):
+    config = AppConfig(
+        summarization=SummarizationConfig(
+            enabled=True,
+            provider="gemini",
+            api_key="test_key",
+            model="gemini-custom-model",
+            prompt="Summarize in one sentence: {text}"
+        )
+    )
+    
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "text": "Single sentence summary."
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+    mock_post.return_value = mock_response
+
+    transcript_text = "Detailed transcription text here."
+    result = generate_summary(transcript_text, config)
+
+    assert result == "Single sentence summary."
+    mock_post.assert_called_once()
+    args, kwargs = mock_post.call_args
+    url = args[0]
+    assert "gemini-custom-model" in url
+    
+    json_data = kwargs["json"]
+    prompt_text = json_data["contents"][0]["parts"][0]["text"]
+    assert prompt_text == "Summarize in one sentence: Detailed transcription text here."
+

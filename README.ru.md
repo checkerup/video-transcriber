@@ -225,6 +225,32 @@ Zoom.exe закрылся
 | macOS | LaunchAgent | `~/Library/LaunchAgents/com.video-transcriber.plist` |
 | Linux | systemd user service | `~/.config/systemd/user/video-transcriber.service` |
 
+## ИИ-Суммаризация (Gemini)
+
+Вы можете включить автоматическое составление резюме (summary) и оглавления по главам с помощью Gemini API. Резюме будет сохранено в файл `{имя_файла}_summary.md` и отправлено в ваш Telegram-бот.
+
+Для активации установите `summarization.enabled: true` в `config.yaml` и укажите ваш `api_key`.
+
+### Смена модели
+Вы можете изменить параметр `summarization.model` в `config.yaml` (например, на `gemini-1.5-pro` или `gemini-2.0-flash-exp`) или переопределить модель через CLI:
+```bash
+python -m video_transcriber.main --summarize --summarization-model "gemini-1.5-pro"
+```
+
+### Изменение промпта (Prompt)
+Вы можете настроить промпт, отправляемый в Gemini, отредактировав опцию `summarization.prompt` в `config.yaml` или используя параметр командной строки `--summarization-prompt`.
+
+Используйте плейсхолдер `{text}` внутри промпта для указания места, куда должен быть вставлен текст расшифровки. Например:
+```yaml
+summarization:
+  enabled: true
+  api_key: "ваш_api_key"
+  model: "gemini-1.5-flash"
+  prompt: "Прочитай следующий текст расшифровки и выдели главные решения на русском языке: {text}"
+```
+
+Если промпт не содержит плейсхолдера `{text}`, текст расшифровки будет автоматически добавлен в конец промпта.
+
 ## CUDA (GPU ускорение)
 
 Скрипт автоматически обнаружит NVIDIA GPU через `torch.cuda` или `nvidia-smi`. Если CUDA доступна — транскрибация пойдёт на GPU (в 3-10 раз быстрее CPU).

@@ -264,6 +264,7 @@ def test_new_config_fields(tmp_path, monkeypatch):
       provider: "gemini"
       api_key: "gemini_secret_123"
       model: "gemini-1.5-pro"
+      prompt: "My Custom Prompt"
     """
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text(config_content)
@@ -276,5 +277,6 @@ def test_new_config_fields(tmp_path, monkeypatch):
     assert cfg.summarization.provider == "gemini"
     assert cfg.summarization.api_key == "gemini_secret_123"
     assert cfg.summarization.model == "gemini-1.5-pro"
+    assert cfg.summarization.prompt == "My Custom Prompt"
 
 

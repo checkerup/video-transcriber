@@ -188,6 +188,14 @@ def main():
         "--no-summarize", action="store_true", default=None,
         help="Disable AI summarization",
     )
+    parser.add_argument(
+        "--summarization-model", type=str, default=None,
+        help="Model to use for summarization (e.g. gemini-1.5-pro)",
+    )
+    parser.add_argument(
+        "--summarization-prompt", type=str, default=None,
+        help="Custom prompt for summarization (can include {text})",
+    )
 
     args = parser.parse_args()
 
@@ -244,6 +252,12 @@ def main():
         config.summarization.enabled = True
     elif args.no_summarize is True:
         config.summarization.enabled = False
+
+    if args.summarization_model is not None:
+        config.summarization.model = args.summarization_model
+
+    if args.summarization_prompt is not None:
+        config.summarization.prompt = args.summarization_prompt
 
     if args.convert_mp3:
         from .extractor import convert_video_to_mp3
