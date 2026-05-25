@@ -1,11 +1,27 @@
 import logging
+import urllib.parse
 from pathlib import Path
+import requests
 
 from .config import AppConfig
 
 logger = logging.getLogger(__name__)
 
 _model_cache: dict = {}
+
+
+def google_translate(text: str, target_lang: str) -> str:
+    if not text.strip():
+        return text
+    url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={target_lang}&dt=t&q={urllib.parse.quote(text)}"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        parts = resp.json()[0]
+        return "".join([part[0] for part in parts if part[0]])
+    except Exception as e:
+        logger.warning("Google Translate failed: %s", e)
+        return text
 
 
 def _get_model(config: AppConfig):
@@ -65,6 +81,22 @@ def _format_txt(segments) -> str:
     return "\n".join(parts)
 
 
+def _format_paragraphs(segments) -> str:
+    text_blocks = []
+    current_block = []
+    for seg in segments:
+        text = seg.text.strip()
+        if not text:
+            continue
+        current_block.append(text)
+        if text[-1] in (".", "?", "!"):
+            text_blocks.append(" ".join(current_block))
+            current_block = []
+    if current_block:
+        text_blocks.append(" ".join(current_block))
+    return "\n\n".join(text_blocks)
+
+
 def transcribe(audio_path: str, config: AppConfig) -> str:
     audio = Path(audio_path)
     if not audio.exists():
@@ -95,12 +127,24 @@ def transcribe(audio_path: str, config: AppConfig) -> str:
         info.language_probability * 100,
     )
 
-    formatters = {"txt": _format_txt, "srt": _format_srt, "vtt": _format_vtt}
-    formatter = formatters.get(fmt, _format_txt)
-    text = formatter(segment_list)
+    translate_to = getattr(config.transcription, "translate_to", "none")
+    if translate_to and translate_to.lower() != "none":
+        detected_lang = info.language
+        if detected_lang != translate_to:
+            logger.info("Translating transcript from %s to %s...", detected_lang, translate_to)
+            for seg in segment_list:
+                seg.text = google_translate(seg.text, translate_to)
+
+    if getattr(config.transcription, "clean_paragraphs", False):
+        text = _format_paragraphs(segment_list)
+    else:
+        formatters = {"txt": _format_txt, "srt": _format_srt, "vtt": _format_vtt}
+        formatter = formatters.get(fmt, _format_txt)
+        text = formatter(segment_list)
 
     with open(transcript_path, "w", encoding="utf-8") as f:
         f.write(text)
 
     logger.info("Transcript saved: %s", transcript_path)
     return str(transcript_path)
+
