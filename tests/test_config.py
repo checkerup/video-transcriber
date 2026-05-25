@@ -97,3 +97,61 @@ def test_no_filesystem_side_effects(tmp_path, monkeypatch):
     assert not output_dir.exists()
     assert Path(cfg.watch.folder) == Path(watch_dir)
     assert Path(cfg.processing.output_folder) == Path(output_dir)
+
+
+def test_robustness_nested_sections_and_type_casting(tmp_path, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+
+    config_content = """
+    watch:
+      delay_seconds: "15"
+    processing:
+      keep_audio: 1
+    transcription:
+      word_timestamps: 0
+    telegram: 42
+    recorder:
+      fps: "60"
+    process_watcher:
+      poll_interval: "8"
+    """
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(config_content)
+
+    cfg = load_config(cfg_file, load_env=False)
+    assert isinstance(cfg, AppConfig)
+
+    assert cfg.watch.delay_seconds == 15
+    assert cfg.processing.keep_audio is True
+    assert cfg.transcription.word_timestamps is False
+    assert cfg.recorder.fps == 60
+    assert cfg.process_watcher.poll_interval == 8
+
+
+def test_non_dict_nested_sections(tmp_path, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+
+    config_content = """
+    watch: "invalid_string"
+    processing: 123
+    transcription: []
+    telegram: false
+    recorder: 0.5
+    process_watcher: "another_invalid"
+    """
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(config_content)
+
+    cfg = load_config(cfg_file, load_env=False)
+    assert isinstance(cfg, AppConfig)
+
+    # Check that it falls back to defaults for each
+    assert cfg.watch.folder is not None
+    assert cfg.processing.keep_audio is True
+    assert cfg.transcription.word_timestamps is True
+    assert cfg.telegram.bot_token == ""
+    assert cfg.recorder.fps == 30
+    assert cfg.process_watcher.poll_interval == 5
+

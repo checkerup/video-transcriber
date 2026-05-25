@@ -85,6 +85,11 @@ def _resolve_device(device: str) -> str:
         return "cpu"
 
 
+def _get_dict_section(raw: dict, name: str) -> dict:
+    section = raw.get(name)
+    return section if isinstance(section, dict) else {}
+
+
 def load_config(config_path: str | Path | None = None, load_env: bool = True) -> AppConfig:
     project_root = Path(__file__).resolve().parent.parent.parent
     if load_env:
@@ -102,12 +107,12 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
             if not isinstance(raw, dict):
                 raw = {}
 
-    watch_raw = raw.get("watch") or {}
-    proc_raw = raw.get("processing") or {}
-    trans_raw = raw.get("transcription") or {}
-    tg_raw = raw.get("telegram") or {}
-    rec_raw = raw.get("recorder") or {}
-    pw_raw = raw.get("process_watcher") or {}
+    watch_raw = _get_dict_section(raw, "watch")
+    proc_raw = _get_dict_section(raw, "processing")
+    trans_raw = _get_dict_section(raw, "transcription")
+    tg_raw = _get_dict_section(raw, "telegram")
+    rec_raw = _get_dict_section(raw, "recorder")
+    pw_raw = _get_dict_section(raw, "process_watcher")
 
     bot_token = tg_raw.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN") or ""
     chat_id = tg_raw.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID") or ""
@@ -123,17 +128,32 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
     watch_folder = os.path.expanduser(watch_raw.get("folder") or default_watch.folder)
     output_folder = os.path.expanduser(proc_raw.get("output_folder") or default_proc.output_folder)
 
+    delay_val = watch_raw.get("delay_seconds")
+    delay_seconds = int(delay_val) if delay_val is not None else default_watch.delay_seconds
+
+    keep_audio_val = proc_raw.get("keep_audio")
+    keep_audio = bool(keep_audio_val) if keep_audio_val is not None else default_proc.keep_audio
+
+    word_timestamps_val = trans_raw.get("word_timestamps")
+    word_timestamps = bool(word_timestamps_val) if word_timestamps_val is not None else default_trans.word_timestamps
+
+    fps_val = rec_raw.get("fps")
+    fps = int(fps_val) if fps_val is not None else default_rec.fps
+
+    poll_interval_val = pw_raw.get("poll_interval")
+    poll_interval = int(poll_interval_val) if poll_interval_val is not None else default_pw.poll_interval
+
     cfg = AppConfig(
         watch=WatchConfig(
             folder=watch_folder,
             extensions=watch_raw.get("extensions") or default_watch.extensions,
-            delay_seconds=watch_raw.get("delay_seconds") if watch_raw.get("delay_seconds") is not None else default_watch.delay_seconds,
+            delay_seconds=delay_seconds,
         ),
         processing=ProcessingConfig(
             output_folder=output_folder,
             audio_format=proc_raw.get("audio_format") or default_proc.audio_format,
             audio_bitrate=proc_raw.get("audio_bitrate") or default_proc.audio_bitrate,
-            keep_audio=proc_raw.get("keep_audio") if proc_raw.get("keep_audio") is not None else default_proc.keep_audio,
+            keep_audio=keep_audio,
         ),
         transcription=TranscriptionConfig(
             model_size=trans_raw.get("model_size") or default_trans.model_size,
@@ -141,19 +161,19 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
             compute_type=trans_raw.get("compute_type") or default_trans.compute_type,
             language=trans_raw.get("language") or default_trans.language,
             output_format=trans_raw.get("output_format") or default_trans.output_format,
-            word_timestamps=trans_raw.get("word_timestamps") if trans_raw.get("word_timestamps") is not None else default_trans.word_timestamps,
+            word_timestamps=word_timestamps,
         ),
         telegram=TelegramConfig(
             bot_token=bot_token,
             chat_id=chat_id,
         ),
         recorder=RecorderConfig(
-            fps=rec_raw.get("fps") if rec_raw.get("fps") is not None else default_rec.fps,
+            fps=fps,
             video_size=rec_raw.get("video_size") if rec_raw.get("video_size") is not None else default_rec.video_size,
         ),
         process_watcher=ProcessWatcherConfig(
             program_names=pw_raw.get("program_names") if pw_raw.get("program_names") is not None else default_pw.program_names,
-            poll_interval=pw_raw.get("poll_interval") if pw_raw.get("poll_interval") is not None else default_pw.poll_interval,
+            poll_interval=poll_interval,
         ),
     )
 
