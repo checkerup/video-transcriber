@@ -87,7 +87,8 @@ def _resolve_device(device: str) -> str:
 
 
 def load_config(config_path: str | Path | None = None) -> AppConfig:
-    load_dotenv()
+    project_root = Path(__file__).resolve().parent.parent.parent
+    load_dotenv(project_root / ".env")
 
     if config_path is None:
         config_path = Path(__file__).resolve().parent.parent.parent / "config.yaml"
@@ -111,37 +112,46 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
 
     device = _resolve_device(trans_raw.get("device", "auto"))
 
+    default_watch = WatchConfig()
+    default_proc = ProcessingConfig()
+    default_trans = TranscriptionConfig()
+    default_rec = RecorderConfig()
+    default_pw = ProcessWatcherConfig()
+
+    watch_folder = os.path.expanduser(watch_raw.get("folder", default_watch.folder))
+    output_folder = os.path.expanduser(proc_raw.get("output_folder", default_proc.output_folder))
+
     cfg = AppConfig(
         watch=WatchConfig(
-            folder=watch_raw.get("folder", WatchConfig.folder),
-            extensions=watch_raw.get("extensions", WatchConfig.extensions),
-            delay_seconds=watch_raw.get("delay_seconds", WatchConfig.delay_seconds),
+            folder=watch_folder,
+            extensions=watch_raw.get("extensions", default_watch.extensions),
+            delay_seconds=watch_raw.get("delay_seconds", default_watch.delay_seconds),
         ),
         processing=ProcessingConfig(
-            output_folder=proc_raw.get("output_folder", ProcessingConfig.output_folder),
-            audio_format=proc_raw.get("audio_format", ProcessingConfig.audio_format),
-            audio_bitrate=proc_raw.get("audio_bitrate", ProcessingConfig.audio_bitrate),
-            keep_audio=proc_raw.get("keep_audio", ProcessingConfig.keep_audio),
+            output_folder=output_folder,
+            audio_format=proc_raw.get("audio_format", default_proc.audio_format),
+            audio_bitrate=proc_raw.get("audio_bitrate", default_proc.audio_bitrate),
+            keep_audio=proc_raw.get("keep_audio", default_proc.keep_audio),
         ),
         transcription=TranscriptionConfig(
-            model_size=trans_raw.get("model_size", TranscriptionConfig.model_size),
+            model_size=trans_raw.get("model_size", default_trans.model_size),
             device=device,
-            compute_type=trans_raw.get("compute_type", TranscriptionConfig.compute_type),
-            language=trans_raw.get("language", TranscriptionConfig.language),
-            output_format=trans_raw.get("output_format", TranscriptionConfig.output_format),
-            word_timestamps=trans_raw.get("word_timestamps", TranscriptionConfig.word_timestamps),
+            compute_type=trans_raw.get("compute_type", default_trans.compute_type),
+            language=trans_raw.get("language", default_trans.language),
+            output_format=trans_raw.get("output_format", default_trans.output_format),
+            word_timestamps=trans_raw.get("word_timestamps", default_trans.word_timestamps),
         ),
         telegram=TelegramConfig(
             bot_token=bot_token,
             chat_id=chat_id,
         ),
         recorder=RecorderConfig(
-            fps=rec_raw.get("fps", RecorderConfig.fps),
-            video_size=rec_raw.get("video_size", RecorderConfig.video_size),
+            fps=rec_raw.get("fps", default_rec.fps),
+            video_size=rec_raw.get("video_size", default_rec.video_size),
         ),
         process_watcher=ProcessWatcherConfig(
-            program_names=pw_raw.get("program_names", ProcessWatcherConfig.program_names),
-            poll_interval=pw_raw.get("poll_interval", ProcessWatcherConfig.poll_interval),
+            program_names=pw_raw.get("program_names", default_pw.program_names),
+            poll_interval=pw_raw.get("poll_interval", default_pw.poll_interval),
         ),
     )
 
