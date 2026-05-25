@@ -119,9 +119,9 @@ def _get_dict_section(raw: dict, name: str) -> dict:
     return section if isinstance(section, dict) else {}
 
 
-def load_config(config_path: str | Path | None = None, load_env: bool = True) -> AppConfig:
+def load_config(config_path: str | Path | None = None, load_env_file: bool = True) -> AppConfig:
     project_root = Path(__file__).resolve().parent.parent.parent
-    if load_env:
+    if load_env_file:
         load_dotenv(project_root / ".env")
 
     if config_path is None:
@@ -129,15 +129,15 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
     else:
         config_path = Path(config_path)
 
-    raw: dict = {}
+    raw = {}
     if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
-            try:
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
-            except Exception:
-                raw = {}
-            if not isinstance(raw, dict):
-                raw = {}
+        except Exception:
+            raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
 
     watch_raw = _get_dict_section(raw, "watch")
     proc_raw = _get_dict_section(raw, "processing")
@@ -157,8 +157,8 @@ def load_config(config_path: str | Path | None = None, load_env: bool = True) ->
     default_rec = RecorderConfig()
     default_pw = ProcessWatcherConfig()
 
-    watch_folder = os.path.expanduser(watch_raw.get("folder") or default_watch.folder)
-    output_folder = os.path.expanduser(proc_raw.get("output_folder") or default_proc.output_folder)
+    watch_folder = os.path.expanduser(str(watch_raw.get("folder") or default_watch.folder))
+    output_folder = os.path.expanduser(str(proc_raw.get("output_folder") or default_proc.output_folder))
 
     delay_seconds = _as_int(watch_raw.get("delay_seconds"), default_watch.delay_seconds)
     keep_audio = _as_bool(proc_raw.get("keep_audio"), default_proc.keep_audio)

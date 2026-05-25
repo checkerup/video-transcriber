@@ -16,7 +16,7 @@ def test_expand_user_paths(tmp_path, monkeypatch):
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text(config_content)
     
-    cfg = load_config(cfg_file, load_env=False)
+    cfg = load_config(cfg_file, load_env_file=False)
     
     # Assert that paths are expanded and don't contain ~
     assert "~" not in cfg.watch.folder
@@ -50,7 +50,7 @@ def test_empty_and_null_sections(tmp_path, monkeypatch):
     cfg_file.write_text(config_content)
     
     # Should load successfully without throwing AttributeError or TypeError
-    cfg = load_config(cfg_file, load_env=False)
+    cfg = load_config(cfg_file, load_env_file=False)
     assert isinstance(cfg, AppConfig)
     
     # Check that defaults are correctly populated
@@ -90,7 +90,7 @@ def test_no_filesystem_side_effects(tmp_path, monkeypatch):
     cfg_file.write_text(config_content)
     
     # Load config
-    cfg = load_config(cfg_file, load_env=False)
+    cfg = load_config(cfg_file, load_env_file=False)
     
     # Verify folders were NOT created
     assert not watch_dir.exists()
@@ -119,7 +119,7 @@ def test_robustness_nested_sections_and_type_casting(tmp_path, monkeypatch):
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text(config_content)
 
-    cfg = load_config(cfg_file, load_env=False)
+    cfg = load_config(cfg_file, load_env_file=False)
     assert isinstance(cfg, AppConfig)
 
     assert cfg.watch.delay_seconds == 15
@@ -144,7 +144,7 @@ def test_non_dict_nested_sections(tmp_path, monkeypatch):
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text(config_content)
 
-    cfg = load_config(cfg_file, load_env=False)
+    cfg = load_config(cfg_file, load_env_file=False)
     assert isinstance(cfg, AppConfig)
 
     # Check that it falls back to defaults for each
@@ -220,10 +220,30 @@ def test_malformed_yaml(tmp_path, monkeypatch):
     cfg_file.write_text(config_content)
 
     # Should not raise exception and return default AppConfig
-    cfg = load_config(cfg_file, load_env=False)
+    cfg = load_config(cfg_file, load_env_file=False)
     assert isinstance(cfg, AppConfig)
     assert cfg.watch.delay_seconds == 10
     assert cfg.processing.keep_audio is True
     assert cfg.transcription.word_timestamps is True
     assert cfg.recorder.fps == 30
     assert cfg.process_watcher.poll_interval == 5
+
+
+def test_path_string_coercion(tmp_path, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+
+    # Config with non-string paths
+    config_content = """
+    watch:
+      folder: 12345
+    processing:
+      output_folder: true
+    """
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(config_content)
+
+    cfg = load_config(cfg_file, load_env_file=False)
+    assert cfg.watch.folder == "12345"
+    assert cfg.processing.output_folder == "True"
+
