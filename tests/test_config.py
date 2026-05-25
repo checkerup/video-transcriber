@@ -247,3 +247,34 @@ def test_path_string_coercion(tmp_path, monkeypatch):
     assert cfg.watch.folder == "12345"
     assert cfg.processing.output_folder == "True"
 
+
+def test_new_config_fields(tmp_path, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    config_content = """
+    processing:
+      silence_removal: true
+    transcription:
+      translate_to: "ru"
+      clean_paragraphs: true
+    summarization:
+      enabled: true
+      provider: "gemini"
+      api_key: "gemini_secret_123"
+      model: "gemini-1.5-pro"
+    """
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(config_content)
+
+    cfg = load_config(cfg_file, load_env_file=False)
+    assert cfg.processing.silence_removal is True
+    assert cfg.transcription.translate_to == "ru"
+    assert cfg.transcription.clean_paragraphs is True
+    assert cfg.summarization.enabled is True
+    assert cfg.summarization.provider == "gemini"
+    assert cfg.summarization.api_key == "gemini_secret_123"
+    assert cfg.summarization.model == "gemini-1.5-pro"
+
+
