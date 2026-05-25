@@ -47,35 +47,40 @@ def watch_processes(config: AppConfig, on_recording_done=None, stop_event: threa
 
     was_running = False
 
-    while not (stop_event and stop_event.is_set()):
-        found = _find_process_by_names(programs)
+    try:
+        while not (stop_event and stop_event.is_set()):
+            found = _find_process_by_names(programs)
 
-        if found and not was_running:
-            logger.info("Process '%s' detected — starting recording", found)
-            output = start_recording(config)
-            if output:
-                was_running = True
-            else:
-                logger.error("Failed to start recording for '%s'", found)
+            if found and not was_running:
+                logger.info("Process '%s' detected — starting recording", found)
+                output = start_recording(config)
+                if output:
+                    was_running = True
+                else:
+                    logger.error("Failed to start recording for '%s'", found)
 
-        elif not found and was_running:
-            logger.info("Target process exited — stopping recording")
-            video_path = stop_recording()
+            elif not found and was_running:
+                logger.info("Target process exited — stopping recording")
+                video_path = stop_recording()
 
-            if video_path and on_recording_done:
-                logger.info("Triggering pipeline for: %s", video_path)
-                threading.Thread(
-                    target=on_recording_done,
-                    args=(video_path,),
-                    daemon=True,
-                ).start()
+                if video_path and on_recording_done:
+                    logger.info("Triggering pipeline for: %s", video_path)
+                    threading.Thread(
+                        target=on_recording_done,
+                        args=(video_path,),
+                        daemon=True,
+                    ).start()
 
-            was_running = False
+                was_running = False
 
-        for _ in range(poll_interval):
-            if stop_event and stop_event.is_set():
-                break
-            time.sleep(1)
+            for _ in range(poll_interval):
+                if stop_event and stop_event.is_set():
+                    break
+                time.sleep(1)
+    finally:
+        if was_running:
+            logger.info("Process watcher shutting down - stopping active recording gracefully")
+            stop_recording()
 
 
 def run_process_watcher(config: AppConfig, on_recording_done=None, stop_event: threading.Event | None = None) -> None:

@@ -46,21 +46,29 @@ class VideoFileHandler(FileSystemEventHandler):
         timer.start()
 
     def _process_after_delay(self, file_path: str):
+        current_timer = threading.current_thread()
         with self._timers_lock:
-            self._timers.pop(Path(file_path).name, None)
+            if self._timers.get(Path(file_path).name) is not current_timer:
+                return
 
         if not self._is_file_stable(file_path):
             logger.warning("File not stable yet, re-queuing: %s", file_path)
-            timer = threading.Timer(
-                self.config.watch.delay_seconds,
-                self._process_after_delay,
-                args=[file_path],
-            )
-            timer.daemon = True
             with self._timers_lock:
+                if self._timers.get(Path(file_path).name) is not current_timer:
+                    return
+                timer = threading.Timer(
+                    self.config.watch.delay_seconds,
+                    self._process_after_delay,
+                    args=[file_path],
+                )
+                timer.daemon = True
                 self._timers[Path(file_path).name] = timer
-            timer.start()
+                timer.start()
             return
+
+        with self._timers_lock:
+            if self._timers.get(Path(file_path).name) is current_timer:
+                self._timers.pop(Path(file_path).name, None)
 
         with self.lock:
             if file_path not in self.queue:

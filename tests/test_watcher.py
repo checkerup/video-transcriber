@@ -12,6 +12,12 @@ def test_sequential_processing_queue():
     # Stub _is_file_stable to return True so we don't require the file to exist on disk
     handler._is_file_stable = lambda file_path: True
     
+    # Register the current thread as the mock timer for these files so safety checks pass
+    current_thread = threading.current_thread()
+    with handler._timers_lock:
+        handler._timers["file1.mp4"] = current_thread
+        handler._timers["file2.mp4"] = current_thread
+
     # Process after delay
     handler._process_after_delay("file1.mp4")
     handler._process_after_delay("file2.mp4")
@@ -149,3 +155,50 @@ def test_watch_processes_graceful_shutdown():
     
     # Assert it exited immediately (much less than poll_interval of 10)
     assert duration < 2.0
+
+
+def test_watch_processes_graceful_shutdown_while_recording(monkeypatch):
+    from video_transcriber.process_watcher import watch_processes
+    from video_transcriber.config import AppConfig
+    import threading
+    
+    config = AppConfig()
+    class MockProcessWatcherConfig:
+        program_names = ["test_process.exe"]
+        poll_interval = 1
+        
+    config.process_watcher = MockProcessWatcherConfig()
+    
+    start_recording_called = False
+    stop_recording_called = False
+    
+    def mock_start_recording(cfg):
+        nonlocal start_recording_called
+        start_recording_called = True
+        return "mock_output_path.mp4"
+        
+    def mock_stop_recording():
+        nonlocal stop_recording_called
+        stop_recording_called = True
+        return "mock_output_path.mp4"
+        
+    # We mock _find_process_by_names to return true the first time, then set stop_event
+    find_calls = 0
+    stop_event = threading.Event()
+    
+    def mock_find_process_by_names(names):
+        nonlocal find_calls
+        find_calls += 1
+        # Set stop event so the loop terminates on next check
+        stop_event.set()
+        return "test_process.exe"
+        
+    monkeypatch.setattr("video_transcriber.process_watcher.start_recording", mock_start_recording)
+    monkeypatch.setattr("video_transcriber.process_watcher.stop_recording", mock_stop_recording)
+    monkeypatch.setattr("video_transcriber.process_watcher._find_process_by_names", mock_find_process_by_names)
+    
+    # Run the watcher
+    watch_processes(config, stop_event=stop_event)
+    
+    assert start_recording_called is True
+    assert stop_recording_called is True
