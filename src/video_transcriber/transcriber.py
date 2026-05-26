@@ -1,5 +1,6 @@
 import logging
 import urllib.parse
+import time
 from pathlib import Path
 import requests
 
@@ -119,7 +120,20 @@ def transcribe(audio_path: str, config: AppConfig) -> str:
         vad_parameters=dict(min_silence_duration_ms=500),
     )
 
-    segment_list = list(segments)
+    segment_list = []
+    last_log_time = time.time()
+    for seg in segments:
+        segment_list.append(seg)
+        current_time = time.time()
+        if current_time - last_log_time >= 15:
+            progress = (seg.end / info.duration) * 100 if info.duration else 0.0
+            logger.info(
+                "Transcription progress: %.1f%% (%s / %s)",
+                progress,
+                format_timestamp(seg.end),
+                format_timestamp(info.duration),
+            )
+            last_log_time = current_time
     logger.info(
         "Transcription complete: %d segments, language=%s (%.1f%% confidence)",
         len(segment_list),
