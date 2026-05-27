@@ -196,6 +196,26 @@ def main():
         "--summarization-prompt", type=str, default=None,
         help="Custom prompt for summarization (can include {text})",
     )
+    parser.add_argument(
+        "--diarize", action="store_true", default=None,
+        help="Enable speaker diarization (splitting by speakers)",
+    )
+    parser.add_argument(
+        "--no-diarize", action="store_true", default=None,
+        help="Disable speaker diarization",
+    )
+    parser.add_argument(
+        "--hf-token", type=str, default=None,
+        help="Hugging Face API token for loading pyannote model",
+    )
+    parser.add_argument(
+        "--min-speakers", type=int, default=None,
+        help="Minimum number of expected speakers",
+    )
+    parser.add_argument(
+        "--max-speakers", type=int, default=None,
+        help="Maximum number of expected speakers",
+    )
 
     args = parser.parse_args()
 
@@ -258,6 +278,20 @@ def main():
 
     if args.summarization_prompt is not None:
         config.summarization.prompt = args.summarization_prompt
+
+    if args.diarize is True:
+        config.diarization.enabled = True
+    elif args.no_diarize is True:
+        config.diarization.enabled = False
+
+    if args.hf_token is not None:
+        config.diarization.auth_token = args.hf_token
+
+    if args.min_speakers is not None:
+        config.diarization.min_speakers = args.min_speakers
+
+    if args.max_speakers is not None:
+        config.diarization.max_speakers = args.max_speakers
 
     if args.convert_mp3:
         from .extractor import convert_video_to_mp3

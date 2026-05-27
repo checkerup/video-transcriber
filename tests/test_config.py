@@ -265,6 +265,11 @@ def test_new_config_fields(tmp_path, monkeypatch):
       api_key: "gemini_secret_123"
       model: "gemini-1.5-pro"
       prompt: "My Custom Prompt"
+    diarization:
+      enabled: true
+      auth_token: "hf_abc_123"
+      min_speakers: 2
+      max_speakers: 5
     """
     cfg_file = tmp_path / "config.yaml"
     cfg_file.write_text(config_content)
@@ -278,5 +283,9 @@ def test_new_config_fields(tmp_path, monkeypatch):
     assert cfg.summarization.api_key == "gemini_secret_123"
     assert cfg.summarization.model == "gemini-1.5-pro"
     assert cfg.summarization.prompt == "My Custom Prompt"
+    assert cfg.diarization.enabled is True
+    assert cfg.diarization.auth_token == "hf_abc_123"
+    assert cfg.diarization.min_speakers == 2
+    assert cfg.diarization.max_speakers == 5
 
 

@@ -39,9 +39,6 @@ def process_file(file_path: str, config: AppConfig) -> dict:
             result["audio"] = output_audio
             audio_path = output_audio
             
-            transcript_path = transcribe(output_audio, config)
-            result["transcript"] = transcript_path
-            
         elif suffix in video_extensions:
             # Video pipeline
             was_video = True
@@ -52,11 +49,18 @@ def process_file(file_path: str, config: AppConfig) -> dict:
             result["audio"] = extracted_audio
             audio_path = extracted_audio
             
-            transcript_path = transcribe(extracted_audio, config)
-            result["transcript"] = transcript_path
-            
         else:
             raise ValueError(f"Unsupported file format: {suffix}")
+
+        # Run diarization if enabled
+        speaker_turns = None
+        if audio_path and getattr(config, "diarization", None) and config.diarization.enabled:
+            from .diarizer import diarize_audio
+            speaker_turns = diarize_audio(audio_path, config)
+
+        if audio_path:
+            transcript_path = transcribe(audio_path, config, speaker_turns=speaker_turns)
+            result["transcript"] = transcript_path
 
         # Summarization
         if result["transcript"]:

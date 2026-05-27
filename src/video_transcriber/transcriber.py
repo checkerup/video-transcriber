@@ -98,7 +98,80 @@ def _format_paragraphs(segments) -> str:
     return "\n\n".join(text_blocks)
 
 
-def transcribe(audio_path: str, config: AppConfig) -> str:
+def find_speaker_for_time(time_sec: float, speaker_turns: list[dict]) -> str:
+    for turn in speaker_turns:
+        if turn["start"] <= time_sec <= turn["end"]:
+            return turn["speaker"]
+    if not speaker_turns:
+        return "UNKNOWN"
+    # Fallback to closest speaker turn
+    closest_turn = min(speaker_turns, key=lambda t: min(abs(t["start"] - time_sec), abs(t["end"] - time_sec)))
+    return closest_turn["speaker"]
+
+
+def align_words_with_speakers(segments, speaker_turns: list[dict]) -> list[dict]:
+    aligned_parts = []
+    current_speaker = None
+    current_text_words = []
+    current_start = None
+    current_end = None
+
+    for seg in segments:
+        if not getattr(seg, "words", None):
+            # Segment level fallback
+            seg_center = (seg.start + seg.end) / 2
+            speaker = find_speaker_for_time(seg_center, speaker_turns)
+            aligned_parts.append({
+                "speaker": speaker,
+                "start": seg.start,
+                "end": seg.end,
+                "text": seg.text.strip()
+            })
+            continue
+
+        for word in seg.words:
+            word_center = (word.start + word.end) / 2
+            speaker = find_speaker_for_time(word_center, speaker_turns)
+
+            if speaker != current_speaker:
+                if current_speaker is not None:
+                    aligned_parts.append({
+                        "speaker": current_speaker,
+                        "start": current_start,
+                        "end": current_end,
+                        "text": "".join(current_text_words).strip()
+                    })
+                current_speaker = speaker
+                current_start = word.start
+                current_text_words = [word.word]
+                current_end = word.end
+            else:
+                current_text_words.append(word.word)
+                current_end = word.end
+
+    if current_speaker is not None:
+        aligned_parts.append({
+            "speaker": current_speaker,
+            "start": current_start,
+            "end": current_end,
+            "text": "".join(current_text_words).strip()
+        })
+
+    return aligned_parts
+
+
+def _format_diarized(aligned_parts: list[dict], clean_paragraphs: bool = False) -> str:
+    lines = []
+    for part in aligned_parts:
+        if clean_paragraphs:
+            lines.append(f"{part['speaker']}: {part['text']}")
+        else:
+            ts = format_timestamp(part["start"])
+            lines.append(f"[{ts}] {part['speaker']}: {part['text']}")
+    return "\n\n".join(lines) if clean_paragraphs else "\n".join(lines)
+
+
+def transcribe(audio_path: str, config: AppConfig, speaker_turns: list[dict] | None = None) -> str:
     audio = Path(audio_path)
     if not audio.exists():
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -112,10 +185,14 @@ def transcribe(audio_path: str, config: AppConfig) -> str:
 
     logger.info("Transcribing: %s (lang=%s)", audio.name, config.transcription.language)
 
+    word_timestamps = config.transcription.word_timestamps
+    if speaker_turns:
+        word_timestamps = True
+
     segments, info = model.transcribe(
         str(audio),
         language=config.transcription.language if config.transcription.language != "auto" else None,
-        word_timestamps=config.transcription.word_timestamps,
+        word_timestamps=word_timestamps,
         vad_filter=True,
         vad_parameters=dict(min_silence_duration_ms=500),
     )
@@ -141,20 +218,31 @@ def transcribe(audio_path: str, config: AppConfig) -> str:
         info.language_probability * 100,
     )
 
+    aligned_parts = []
+    if speaker_turns:
+        aligned_parts = align_words_with_speakers(segment_list, speaker_turns)
+
     translate_to = getattr(config.transcription, "translate_to", "none")
     if translate_to and translate_to.lower() != "none":
         detected_lang = info.language
         if detected_lang != translate_to:
             logger.info("Translating transcript from %s to %s...", detected_lang, translate_to)
-            for seg in segment_list:
-                seg.text = google_translate(seg.text, translate_to)
+            if speaker_turns and aligned_parts:
+                for part in aligned_parts:
+                    part["text"] = google_translate(part["text"], translate_to)
+            else:
+                for seg in segment_list:
+                    seg.text = google_translate(seg.text, translate_to)
 
-    if getattr(config.transcription, "clean_paragraphs", False):
-        text = _format_paragraphs(segment_list)
+    if speaker_turns and aligned_parts:
+        text = _format_diarized(aligned_parts, clean_paragraphs=getattr(config.transcription, "clean_paragraphs", False))
     else:
-        formatters = {"txt": _format_txt, "srt": _format_srt, "vtt": _format_vtt}
-        formatter = formatters.get(fmt, _format_txt)
-        text = formatter(segment_list)
+        if getattr(config.transcription, "clean_paragraphs", False):
+            text = _format_paragraphs(segment_list)
+        else:
+            formatters = {"txt": _format_txt, "srt": _format_srt, "vtt": _format_vtt}
+            formatter = formatters.get(fmt, _format_txt)
+            text = formatter(segment_list)
 
     with open(transcript_path, "w", encoding="utf-8") as f:
         f.write(text)

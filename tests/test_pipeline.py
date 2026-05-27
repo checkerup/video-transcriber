@@ -44,7 +44,7 @@ def test_process_audio_file(
 
     # Assertions
     mock_copy_audio.assert_called_once_with("input.mp3", config)
-    mock_transcribe.assert_called_once_with("C:/Processed/audio.mp3", config)
+    mock_transcribe.assert_called_once_with("C:/Processed/audio.mp3", config, speaker_turns=None)
     mock_generate_summary.assert_called_once_with("Mocked transcript text", config)
     
     # Check that video copying and audio extraction were skipped
@@ -98,7 +98,7 @@ def test_process_video_file_keep_audio_false(
     # Verify video flow
     mock_copy_video.assert_called_once_with("input.mp4", config)
     mock_extract_audio.assert_called_once_with("C:/Processed/video.mp4", config)
-    mock_transcribe.assert_called_once_with("C:/Processed/video.mp3", config)
+    mock_transcribe.assert_called_once_with("C:/Processed/video.mp3", config, speaker_turns=None)
     
     # Assert temporary audio was unlinked/deleted
     mock_unlink.assert_called_once()

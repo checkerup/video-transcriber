@@ -78,6 +78,14 @@ class SummarizationConfig:
 
 
 @dataclass
+class DiarizationConfig:
+    enabled: bool = False
+    auth_token: str = ""
+    min_speakers: int | None = None
+    max_speakers: int | None = None
+
+
+@dataclass
 class AppConfig:
     watch: WatchConfig = field(default_factory=WatchConfig)
     processing: ProcessingConfig = field(default_factory=ProcessingConfig)
@@ -86,6 +94,7 @@ class AppConfig:
     recorder: RecorderConfig = field(default_factory=RecorderConfig)
     process_watcher: ProcessWatcherConfig = field(default_factory=ProcessWatcherConfig)
     summarization: SummarizationConfig = field(default_factory=SummarizationConfig)
+    diarization: DiarizationConfig = field(default_factory=DiarizationConfig)
 
 
 def _resolve_device(device: str) -> str:
@@ -159,6 +168,7 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
     rec_raw = _get_dict_section(raw, "recorder")
     pw_raw = _get_dict_section(raw, "process_watcher")
     sum_raw = _get_dict_section(raw, "summarization")
+    diar_raw = _get_dict_section(raw, "diarization")
 
     bot_token = tg_raw.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN") or ""
     chat_id = tg_raw.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID") or ""
@@ -171,6 +181,7 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
     default_rec = RecorderConfig()
     default_pw = ProcessWatcherConfig()
     default_sum = SummarizationConfig()
+    default_diar = DiarizationConfig()
 
     watch_folder = os.path.expanduser(str(watch_raw.get("folder") or default_watch.folder))
     output_folder = os.path.expanduser(str(proc_raw.get("output_folder") or default_proc.output_folder))
@@ -225,6 +236,12 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
             api_key=str(sum_raw.get("api_key") or os.getenv("GEMINI_API_KEY") or default_sum.api_key or ""),
             model=str(sum_raw.get("model") or default_sum.model),
             prompt=str(sum_raw.get("prompt") or default_sum.prompt),
+        ),
+        diarization=DiarizationConfig(
+            enabled=_as_bool(diar_raw.get("enabled"), default_diar.enabled),
+            auth_token=str(diar_raw.get("auth_token") or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or default_diar.auth_token or ""),
+            min_speakers=None if diar_raw.get("min_speakers") is None else _as_int(diar_raw.get("min_speakers"), 0) or None,
+            max_speakers=None if diar_raw.get("max_speakers") is None else _as_int(diar_raw.get("max_speakers"), 0) or None,
         ),
     )
 
