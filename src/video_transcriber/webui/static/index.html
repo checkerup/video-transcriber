@@ -8,6 +8,23 @@
 <script>
 // ---------- visible boot diagnostics (runs before Alpine / app.js) ----------
 window.__boot = [];
+window.__bootState = { collapsed: false, hasErrors: false };
+
+window.__expandBoot = function () {
+  var w = document.getElementById("boot-wrap");
+  var m = document.getElementById("boot-mini");
+  if (w) w.style.display = "block";
+  if (m) m.style.display = "none";
+  window.__bootState.collapsed = false;
+};
+window.__collapseBoot = function () {
+  var w = document.getElementById("boot-wrap");
+  var m = document.getElementById("boot-mini");
+  if (w) w.style.display = "none";
+  if (m) m.style.display = "flex";
+  window.__bootState.collapsed = true;
+};
+
 window.bootLog = function (msg, kind) {
   try {
     var b = (window.__boot = window.__boot || []);
@@ -23,6 +40,10 @@ window.bootLog = function (msg, kind) {
       el.appendChild(line);
       el.scrollTop = el.scrollHeight;
     }
+    if (kind === "err") {
+      window.__bootState.hasErrors = true;
+      if (window.__expandBoot) window.__expandBoot();
+    }
   } catch (e) { /* swallow */ }
 };
 window.addEventListener("error", function (e) {
@@ -35,7 +56,15 @@ window.addEventListener("error", function (e) {
 window.addEventListener("unhandledrejection", function (e) {
   bootLog("unhandled promise: " + (e.reason && e.reason.message || e.reason || "?"), "err");
 });
-window.addEventListener("DOMContentLoaded", function () { bootLog("DOMContentLoaded"); });
+window.addEventListener("DOMContentLoaded", function () {
+  bootLog("DOMContentLoaded");
+  // Auto-collapse after 4s if no errors.
+  setTimeout(function () {
+    if (!window.__bootState.hasErrors && !window.__bootState.collapsed) {
+      window.__collapseBoot();
+    }
+  }, 4000);
+});
 window.addEventListener("pywebviewready", function () { bootLog("pywebviewready event", "ok"); });
 bootLog("inline boot script ran");
 
@@ -43,16 +72,12 @@ window.copyBootLog = function (btn) {
   try {
     var lines = (window.__boot || []).map(function (e) {
       return new Date(e.t).toLocaleTimeString() + " [" + (e.kind || "info").toUpperCase() + "] " + e.msg;
-    });
-    var text = lines.join("\n");
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(function () {
-        if (btn) {
-          var orig = btn.textContent;
-          btn.textContent = "✓ Copied";
-          setTimeout(function () { btn.textContent = orig; }, 1200);
-        }
-      });
+    }).join("\n");
+    navigator.clipboard.writeText(lines);
+    if (btn) {
+      var orig = btn.textContent;
+      btn.textContent = "✓ Copied";
+      setTimeout(function () { if (btn) btn.textContent = orig; }, 1200);
     }
   } catch (e) { /* swallow */ }
 };
@@ -61,15 +86,20 @@ window.copyBootLog = function (btn) {
 <script defer src="./vendor/alpine.min.js" onerror="bootLog('alpine.min.js failed to load','err')"></script>
 </head>
 <body>
-<div id="boot-wrap" style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:rgba(10,12,16,0.95);border-top:1px solid #353c4d;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#cfd5e3;display:flex;flex-direction:column;max-height:50vh;">
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 10px;border-bottom:1px solid #232938;background:#161a22;flex-shrink:0;">
-    <span style="color:#9aa3b2;">Boot diagnostics</span>
-    <span>
-      <button onclick="copyBootLog(this)" style="background:#1c212c;color:#cfd5e3;border:1px solid #353c4d;padding:3px 9px;border-radius:4px;cursor:pointer;font:inherit;">Copy log</button>
-      <button onclick="document.getElementById('boot-wrap').style.display='none'" style="background:#1c212c;color:#cfd5e3;border:1px solid #353c4d;padding:3px 9px;border-radius:4px;cursor:pointer;font:inherit;margin-left:6px;">Hide</button>
-    </span>
+<!-- Collapsed pill (hidden by default; shown after auto-collapse). -->
+<div id="boot-mini" onclick="window.__expandBoot()" style="display:none;position:fixed;right:14px;bottom:14px;z-index:99999;background:#1c212c;color:#cfd5e3;border:1px solid #353c4d;border-radius:18px;padding:6px 12px;font:12px/1 ui-monospace,Menlo,Consolas,monospace;cursor:pointer;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+  🩺 diagnostics
+</div>
+
+<div id="boot-wrap" style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:rgba(10,12,16,0.95);border-top:1px solid #353c4d;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#cfd5e3;">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid #262b37;">
+    <div style="opacity:0.7;font-size:11px;">boot diagnostics</div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="copyBootLog(this)" style="background:#1c212c;color:#cfd5e3;border:1px solid #353c4d;padding:3px 9px;border-radius:4px;font:11px/1 ui-monospace,Menlo,Consolas,monospace;cursor:pointer;">📋 Copy log</button>
+      <button onclick="window.__collapseBoot()" style="background:#1c212c;color:#cfd5e3;border:1px solid #353c4d;padding:3px 9px;border-radius:4px;font:11px/1 ui-monospace,Menlo,Consolas,monospace;cursor:pointer;">🔒 Hide</button>
+    </div>
   </div>
-  <div id="boot-status" style="min-height:120px;max-height:300px;overflow:auto;padding:6px 10px;white-space:pre-wrap;word-break:break-word;">Boot log…</div>
+  <div id="boot-status" style="max-height:180px;overflow:auto;padding:6px 10px;"></div>
 </div>
 <div class="app" x-data="app()" x-cloak>
 

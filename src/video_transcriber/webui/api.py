@@ -167,8 +167,12 @@ class JsApi:
             file_types = ("Transcript (*.txt;*.srt;*.vtt)", "All files (*.*)")
         else:
             file_types = ("All files (*.*)",)
+        try:
+            _open_kind = webview.FileDialog.OPEN
+        except AttributeError:
+            _open_kind = webview.OPEN_DIALOG  # type: ignore[attr-defined]
         result = self._window.create_file_dialog(
-            webview.OPEN_DIALOG,
+            _open_kind,
             allow_multiple=False,
             file_types=file_types,
         )
@@ -178,9 +182,11 @@ class JsApi:
 
     def pick_folder(self) -> str | None:
         import webview
-        if self._window is None:
-            return None
-        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        try:
+            _folder_kind = webview.FileDialog.FOLDER
+        except AttributeError:
+            _folder_kind = webview.FOLDER_DIALOG  # type: ignore[attr-defined]
+        result = self._window.create_file_dialog(_folder_kind)
         if not result:
             return None
         return result[0] if isinstance(result, (list, tuple)) else result
