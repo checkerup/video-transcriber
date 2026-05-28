@@ -1,0 +1,344 @@
+/* Video Transcriber GUI — Alpine.js controller. */
+
+// ---------- helpers ----------
+
+function api() {
+  // Available after pywebview boot.
+  return window.pywebview && window.pywebview.api ? window.pywebview.api : null;
+}
+
+async function call(name, ...args) {
+  const a = api();
+  if (!a || typeof a[name] !== "function") {
+    throw new Error(`API method '${name}' not available (yet?)`);
+  }
+  return await a[name](...args);
+}
+
+function fmtSec(s) {
+  if (s == null || !isFinite(s)) return "—";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return [h, m, sec].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+// ---------- Alpine root ----------
+
+window.app = function () {
+  return {
+    // ----- state -----
+    version: "1.1",
+    tab: "process",
+    tabs: [
+      { id: "process",  icon: "📥", label: "Process",   sub: "Drop a video, set options, transcribe." },
+      { id: "live",     icon: "🎙", label: "Live",      sub: "Record voice / screen / system audio." },
+      { id: "history",  icon: "📋", label: "History",   sub: "Past runs + re-tag speakers." },
+      { id: "settings", icon: "⚙",  label: "Settings",  sub: "Edit config.yaml." },
+      { id: "system",   icon: "🔧", label: "System",    sub: "Hardware + logs." },
+    ],
+
+    config: null,
+    hardware: {},
+    history: [],
+    logTail: [],
+
+    process: {
+      file: "",
+      model_size: "",
+      language: "",
+      translate_to: "",
+      summarize: false,
+      diarize: true,
+      diar_backend: "",
+      diar_model: "",
+      num_speakers: null,
+      cluster_threshold: 0.7,
+    },
+    dragHot: false,
+    activeJob: null,
+    _jobsTimer: null,
+
+    live: {
+      mode: "voice",
+      active: false,
+      startedAt: 0,
+      lastOutput: "",
+    },
+    liveModes: [
+      { id: "voice",  label: "Voice", hint: "Microphone only." },
+      { id: "screen", label: "Screen", hint: "Screen + microphone." },
+      { id: "full",   label: "Full",  hint: "Screen + mic + system audio loopback." },
+    ],
+
+    settings: {
+      yaml: "",
+      savedAt: null,
+    },
+
+    drawer: {
+      open: false,
+      mode: "view", // view | retag
+      name: "",
+      transcripts: [],
+      transcript: "",
+      num_speakers: null,
+      cluster_threshold: 0.7,
+      _retag_target: "",
+    },
+
+    toasts: [],
+    _toastId: 0,
+
+    // ----- helpers -----
+    activeTab() { return this.tabs.find((t) => t.id === this.tab) || this.tabs[0]; },
+    basename(p) { return (p || "").replace(/\\/g, "/").split("/").pop(); },
+    formatSec(s) { return fmtSec(s); },
+
+    toast(text, kind = "ok", ttl = 3500) {
+      const id = ++this._toastId;
+      this.toasts.push({ id, text, kind });
+      setTimeout(() => {
+        this.toasts = this.toasts.filter((t) => t.id !== id);
+      }, ttl);
+    },
+
+    // ----- bootstrap -----
+    async init() {
+      await this.waitForApi();
+      try {
+        const ping = await call("ping");
+        console.log("api ready", ping);
+      } catch (e) {
+        console.error(e);
+      }
+      await this.refreshAll();
+      this.startJobPolling();
+    },
+
+    async waitForApi(timeoutMs = 8000) {
+      const t0 = Date.now();
+      while (!api()) {
+        if (Date.now() - t0 > timeoutMs) throw new Error("pywebview api never appeared");
+        await new Promise((r) => setTimeout(r, 80));
+      }
+    },
+
+    async refreshAll() {
+      try {
+        this.config = await call("get_config");
+      } catch (e) { console.error(e); }
+      try { this.hardware = await call("hardware"); } catch (e) { console.error(e); }
+      try { this.history = await call("list_history"); } catch (e) { console.error(e); }
+      try { this.settings.yaml = await call("get_config_yaml"); } catch (e) { console.error(e); }
+      // seed diarize toggle from config
+      if (this.config && this.config.diarization) {
+        this.process.diarize = !!this.config.diarization.enabled;
+        if (this.config.diarization.cluster_threshold) {
+          this.process.cluster_threshold = +this.config.diarization.cluster_threshold;
+        }
+      }
+    },
+
+    // ----- file picking -----
+
+    async pickFile() {
+      try {
+        const p = await call("pick_file", "video");
+        if (p) this.process.file = p;
+      } catch (e) {
+        this.toast(String(e), "err");
+      }
+    },
+
+    onDrop(ev) {
+      this.dragHot = false;
+      const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (f && f.path) {
+        // Electron/PyWebView desktop drops expose .path on the File.
+        this.process.file = f.path;
+      } else if (f) {
+        // Browser fallback: no path available; warn the user.
+        this.toast("Drop didn't expose a path — click the zone to use the file picker.", "err");
+      }
+    },
+
+    // ----- process job -----
+
+    async startProcess() {
+      if (!this.process.file) return;
+      const overrides = this._processOverrides();
+      try {
+        const res = await call("start_process", this.process.file, overrides);
+        if (res.ok) {
+          this.toast(`Queued: ${this.basename(this.process.file)}`);
+        } else {
+          this.toast(res.error || "failed to start", "err");
+        }
+      } catch (e) {
+        this.toast(String(e), "err");
+      }
+    },
+
+    _processOverrides() {
+      const p = this.process;
+      const o = { diarize: p.diarize };
+      if (p.model_size) o.model_size = p.model_size;
+      if (p.language) o.language = p.language;
+      if (p.translate_to) o.translate_to = p.translate_to;
+      if (p.summarize) o.summarize = true;
+      if (p.diar_backend) o.diar_backend = p.diar_backend;
+      if (p.diar_model) o.diar_model = p.diar_model;
+      if (p.num_speakers) o.num_speakers = +p.num_speakers;
+      if (p.cluster_threshold) o.cluster_threshold = +p.cluster_threshold;
+      return o;
+    },
+
+    async cancelActive() {
+      if (!this.activeJob) return;
+      try {
+        await call("cancel_job", this.activeJob.job_id);
+        this.toast("Cancel requested.");
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    startJobPolling() {
+      if (this._jobsTimer) return;
+      const tick = async () => {
+        try {
+          const jobs = await call("list_jobs");
+          const running = jobs.find((j) => j.status === "running");
+          const queued = jobs.find((j) => j.status === "queued");
+          const finished = jobs.filter((j) => j.status === "done" || j.status === "failed" || j.status === "cancelled");
+          const newActive = running || queued || null;
+          // detect transition: previous active became finished -> notify + refresh history
+          if (this.activeJob && !newActive) {
+            const f = finished.find((j) => j.job_id === this.activeJob.job_id);
+            if (f) {
+              if (f.status === "done") this.toast(`Done: ${this.basename(f.file_path)}`, "ok");
+              else if (f.status === "failed") this.toast(`Failed: ${f.error || ""}`, "err", 8000);
+              else this.toast(`Cancelled.`, "ok");
+              await this.refreshHistory();
+            }
+          }
+          this.activeJob = newActive;
+          if (newActive) this.logTail = newActive.log_tail || [];
+          else this.logTail = await call("get_log_tail").catch(() => []);
+        } catch (e) {
+          // ignore transient errors
+        }
+      };
+      tick();
+      this._jobsTimer = setInterval(tick, 700);
+    },
+
+    async refreshHistory() {
+      try { this.history = await call("list_history"); } catch (_) {}
+    },
+
+    // ----- live recording -----
+
+    async startLive() {
+      try {
+        const res = await call("start_live_recording", this.live.mode);
+        if (res.ok) {
+          this.live.active = true;
+          this.live.startedAt = Math.floor(Date.now() / 1000);
+          this.toast(`Recording (${this.live.mode}) started.`);
+        } else {
+          this.toast(res.error || "failed", "err");
+        }
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    async stopLive() {
+      try {
+        const res = await call("stop_live_recording");
+        this.live.active = false;
+        if (res.ok) {
+          this.live.lastOutput = res.media;
+          this.toast(`Saved & queued for transcription.`);
+        } else {
+          this.toast(res.error || "stop failed", "err");
+        }
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    // ----- settings -----
+
+    async saveYaml() {
+      try {
+        const res = await call("save_config_yaml", this.settings.yaml);
+        if (res.ok) {
+          this.config = res.config;
+          this.settings.savedAt = Date.now();
+          this.toast("Config saved.");
+        } else {
+          this.toast(res.error || "save failed", "err", 8000);
+        }
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    async reloadYaml() {
+      try {
+        this.settings.yaml = await call("get_config_yaml");
+        this.toast("Reloaded.");
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    // ----- drawer / history actions -----
+
+    async openTranscript(h) {
+      this.drawer.open = true;
+      this.drawer.mode = "view";
+      this.drawer.name = h.name;
+      this.drawer.transcripts = h.transcripts || [];
+      this.drawer.transcript = "";
+      if (h.transcripts && h.transcripts.length) {
+        await this.loadTranscript(h.transcripts[0]);
+      }
+    },
+
+    async loadTranscript(p) {
+      try {
+        const res = await call("read_transcript", p);
+        if (res.ok) {
+          this.drawer.transcript = res.text + (res.truncated ? "\n\n[…truncated…]" : "");
+        } else {
+          this.drawer.transcript = `Error: ${res.error}`;
+        }
+      } catch (e) { this.drawer.transcript = String(e); }
+    },
+
+    openRetag(h) {
+      this.drawer.open = true;
+      this.drawer.mode = "retag";
+      this.drawer.name = h.name;
+      this.drawer.transcripts = h.transcripts || [];
+      this.drawer.num_speakers = null;
+      this.drawer.cluster_threshold = 0.7;
+      // pick the .txt transcript as the retag target if available
+      this.drawer._retag_target = (h.transcripts || []).find((p) => p.endsWith(".txt")) || (h.transcripts || [])[0] || "";
+    },
+
+    async runRetag() {
+      if (!this.drawer._retag_target) {
+        this.toast("No transcript to retag.", "err");
+        return;
+      }
+      const overrides = {};
+      if (this.drawer.num_speakers) overrides.num_speakers = +this.drawer.num_speakers;
+      if (this.drawer.cluster_threshold) overrides.cluster_threshold = +this.drawer.cluster_threshold;
+      try {
+        const res = await call("start_retag", this.drawer._retag_target, overrides);
+        if (res.ok) {
+          this.toast("Retag queued. Watch progress on Process tab.");
+          this.drawer.open = false;
+          this.tab = "process";
+        } else {
+          this.toast(res.error || "failed", "err");
+        }
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+  };
+};

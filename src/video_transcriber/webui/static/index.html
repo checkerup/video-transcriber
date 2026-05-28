@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Video Transcriber</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="./style.css" />
+<script defer src="./vendor/alpine.min.js"></script>
+<script defer src="./app.js"></script>
+</head>
+<body>
+<div class="app" x-data="app()" x-init="init()">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="dot"></span> Video Transcriber
+      <span class="ver" x-text="version"></span>
+    </div>
+    <template x-for="t in tabs" :key="t.id">
+      <div class="nav-item" :class="{active: tab===t.id}" @click="tab=t.id">
+        <span class="ico" x-text="t.icon"></span>
+        <span x-text="t.label"></span>
+      </div>
+    </template>
+    <div class="nav-spacer"></div>
+    <div class="nav-foot">
+      Fork of <a href="https://github.com/checkerup/video-transcriber" target="_blank">video-transcriber</a><br>
+      Diarization inspired by
+      <a href="https://github.com/dmarzzz/VoxTerm" target="_blank">VoxTerm</a>.
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <section class="main">
+    <header class="main-head">
+      <div>
+        <h1 x-text="activeTab().label"></h1>
+        <div class="sub" x-text="activeTab().sub"></div>
+      </div>
+      <div class="gap-sm">
+        <button class="btn ghost" @click="refreshAll()" title="Refresh">↻</button>
+      </div>
+    </header>
+
+    <div class="main-body">
+
+      <!-- ========== PROCESS tab ========== -->
+      <div x-show="tab==='process'">
+        <div class="card">
+          <h2>Source</h2>
+          <div class="dropzone"
+               :class="{dragover: dragHot}"
+               @click="pickFile()"
+               @dragover.prevent="dragHot=true"
+               @dragleave.prevent="dragHot=false"
+               @drop.prevent="onDrop($event)">
+            <div class="big">📥</div>
+            <div>Drop a video / audio file here, or <b>click to browse</b></div>
+            <div class="file" x-show="process.file" x-text="process.file"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Pipeline options</h2>
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Whisper model</span>
+              <select x-model="process.model_size">
+                <option value="">— from config —</option>
+                <option>tiny</option><option>base</option><option>small</option>
+                <option>medium</option><option>large-v3</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="lbl">Language hint</span>
+              <input type="text" x-model="process.language" placeholder="ru / en / auto" />
+            </label>
+            <label class="field">
+              <span class="lbl">Translate to (optional)</span>
+              <input type="text" x-model="process.translate_to" placeholder="empty = no" />
+            </label>
+            <label class="field">
+              <span class="lbl">Summarize</span>
+              <label class="toggle" style="padding:0">
+                <input type="checkbox" x-model="process.summarize" />
+                <span x-text="process.summarize ? 'on (gemini)' : 'off'"></span>
+              </label>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Diarization</h2>
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Enabled</span>
+              <label class="toggle" style="padding:0">
+                <input type="checkbox" x-model="process.diarize" />
+                <span x-text="process.diarize ? 'yes' : 'no'"></span>
+              </label>
+            </label>
+            <label class="field">
+              <span class="lbl">Backend</span>
+              <select x-model="process.diar_backend" :disabled="!process.diarize">
+                <option value="">— from config —</option>
+                <option value="voxterm">voxterm (offline)</option>
+                <option value="pyannote">pyannote (HF token)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="lbl">Model</span>
+              <select x-model="process.diar_model" :disabled="!process.diarize">
+                <option value="">— from config —</option>
+                <option value="cam++">CAM++ (fast)</option>
+                <option value="eres2net">ERes2NetV2 (accurate)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="lbl">Force # speakers (optional)</span>
+              <input type="number" min="1" max="50" x-model.number="process.num_speakers"
+                     :disabled="!process.diarize" placeholder="auto" />
+            </label>
+            <label class="field">
+              <span class="lbl">
+                Cluster threshold
+                <b class="mono tiny" x-text="(+process.cluster_threshold || 0.7).toFixed(2)"></b>
+              </span>
+              <input type="range" min="0.3" max="0.9" step="0.05"
+                     x-model.number="process.cluster_threshold"
+                     :disabled="!process.diarize" />
+              <span class="tiny muted">higher = fewer speakers; 0.7 default</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" @click="startProcess()"
+                  :disabled="!process.file || activeJob">
+            ▶ Start
+          </button>
+          <button class="btn danger" @click="cancelActive()"
+                  x-show="activeJob && activeJob.status==='running'">
+            ✕ Cancel
+          </button>
+          <span class="spacer"></span>
+          <span class="muted tiny" x-show="!process.file">Pick a file first.</span>
+        </div>
+
+        <!-- Active job panel -->
+        <template x-if="activeJob">
+          <div class="card" style="margin-top:18px">
+            <h2>
+              Active job
+              <span class="pill" :class="activeJob.status" x-text="activeJob.status"></span>
+            </h2>
+            <div class="mono tiny muted" x-text="activeJob.file_path"></div>
+            <div class="progress" :class="{indeterminate: activeJob.progress<=0.01 && activeJob.status==='running'}">
+              <div class="bar" :style="`width:${Math.max(0,Math.min(1,activeJob.progress))*100}%`"></div>
+            </div>
+            <div class="kv">
+              <span>Stage: <b x-text="activeJob.stage || '—'"></b></span>
+              <span>Progress: <b x-text="(activeJob.progress*100).toFixed(1)+'%'"></b></span>
+              <span>Elapsed: <b x-text="activeJob.elapsed_human"></b></span>
+              <span x-show="activeJob.eta_human">ETA: <b x-text="activeJob.eta_human"></b></span>
+            </div>
+            <div class="log" x-ref="log">
+              <template x-for="(line, i) in activeJob.log_tail" :key="i">
+                <div :class="{err: /ERROR|Traceback/.test(line)}" x-text="line"></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ========== LIVE tab ========== -->
+      <div x-show="tab==='live'">
+        <div class="card">
+          <h2>Mode</h2>
+          <div class="row">
+            <template x-for="m in liveModes" :key="m.id">
+              <label class="field">
+                <span class="lbl" style="display:flex;align-items:center;gap:8px">
+                  <input type="radio" :value="m.id" x-model="live.mode" :disabled="live.active"/>
+                  <b x-text="m.label"></b>
+                </span>
+                <span class="tiny muted" x-text="m.hint"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" @click="startLive()" :disabled="live.active">
+            🔴 Start recording
+          </button>
+          <button class="btn danger" @click="stopLive()" x-show="live.active">
+            ⏹ Stop &amp; transcribe
+          </button>
+          <span class="spacer"></span>
+          <span class="muted tiny" x-show="live.active">
+            Recording started at <b x-text="new Date(live.startedAt*1000).toLocaleTimeString()"></b>
+          </span>
+        </div>
+
+        <div class="card" x-show="live.lastOutput">
+          <h2>Last recording</h2>
+          <div class="mono tiny" x-text="live.lastOutput"></div>
+        </div>
+      </div>
+
+      <!-- ========== HISTORY tab ========== -->
+      <div x-show="tab==='history'">
+        <div class="card">
+          <h2>Past runs <span class="muted tiny" x-text="`(${history.length})`"></span></h2>
+          <template x-if="history.length===0">
+            <div class="muted tiny">No timing reports yet. Run something first.</div>
+          </template>
+          <template x-for="h in history" :key="h.name">
+            <div class="history-item">
+              <div>
+                <div class="name" x-text="h.name"></div>
+                <div class="meta">
+                  <span>Processed in <b x-text="h.total_elapsed_human || '—'"></b></span>
+                  <span x-show="h.speedup_vs_source">
+                    · speedup <b x-text="h.speedup_vs_source.toFixed(2)+'×'"></b>
+                  </span>
+                  <span x-show="h.source_duration_seconds">
+                    · source <b x-text="formatSec(h.source_duration_seconds)"></b>
+                  </span>
+                </div>
+              </div>
+              <button class="btn ghost" @click="openTranscript(h)">View</button>
+              <button class="btn" @click="openRetag(h)">Retag…</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ========== SETTINGS tab ========== -->
+      <div x-show="tab==='settings'">
+        <div class="card">
+          <h2>Folders</h2>
+          <div class="row">
+            <label class="field" style="min-width:280px">
+              <span class="lbl">Watch folder</span>
+              <input type="text" :value="config?.watch?.folder || ''" readonly />
+            </label>
+            <label class="field" style="min-width:280px">
+              <span class="lbl">Output folder</span>
+              <input type="text" :value="config?.processing?.output_folder || ''" readonly />
+            </label>
+          </div>
+          <div class="tiny muted" style="margin-top:8px">
+            Edit values in the raw YAML below, then click Save.
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Raw config.yaml</h2>
+          <textarea class="yaml" x-model="settings.yaml" spellcheck="false"></textarea>
+          <div class="btn-row">
+            <button class="btn primary" @click="saveYaml()">💾 Save</button>
+            <button class="btn ghost" @click="reloadYaml()">↻ Reload from disk</button>
+            <span class="spacer"></span>
+            <span class="tiny muted" x-show="settings.savedAt"
+                  x-text="`Saved ${new Date(settings.savedAt).toLocaleTimeString()}`"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== SYSTEM tab ========== -->
+      <div x-show="tab==='system'">
+        <div class="card">
+          <h2>Hardware</h2>
+          <pre class="mono tiny" style="white-space:pre-wrap" x-text="JSON.stringify(hardware,null,2)"></pre>
+        </div>
+        <div class="card">
+          <h2>Active job log</h2>
+          <div class="log">
+            <template x-for="(line, i) in logTail" :key="i">
+              <div x-text="line"></div>
+            </template>
+            <div x-show="logTail.length===0" class="muted">No active job.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Drawer: transcript / retag -->
+  <template x-if="drawer.open">
+    <div>
+      <div class="drawer-bg" @click="drawer.open=false"></div>
+      <div class="drawer">
+        <div class="head">
+          <div>
+            <div class="mono tiny" x-text="drawer.name"></div>
+            <div class="tiny muted" x-text="drawer.mode==='retag' ? 'Re-tag speakers' : 'Transcript'"></div>
+          </div>
+          <button class="btn ghost" @click="drawer.open=false">✕</button>
+        </div>
+        <div class="body">
+          <!-- Retag mode -->
+          <div x-show="drawer.mode==='retag'">
+            <div class="card">
+              <h2>Re-cluster speakers (no Whisper re-run)</h2>
+              <div class="row">
+                <label class="field">
+                  <span class="lbl"># speakers (optional)</span>
+                  <input type="number" min="1" max="50" x-model.number="drawer.num_speakers" placeholder="auto" />
+                </label>
+                <label class="field">
+                  <span class="lbl">
+                    Cluster threshold
+                    <b class="mono tiny" x-text="(+drawer.cluster_threshold || 0.7).toFixed(2)"></b>
+                  </span>
+                  <input type="range" min="0.3" max="0.9" step="0.05"
+                         x-model.number="drawer.cluster_threshold" />
+                </label>
+              </div>
+              <div class="btn-row">
+                <button class="btn primary" @click="runRetag()">▶ Run retag</button>
+              </div>
+            </div>
+          </div>
+          <!-- Transcript mode -->
+          <div x-show="drawer.mode==='view'">
+            <div class="gap-sm" style="margin-bottom:10px">
+              <template x-for="p in drawer.transcripts" :key="p">
+                <button class="btn ghost tiny" @click="loadTranscript(p)" x-text="basename(p)"></button>
+              </template>
+            </div>
+            <pre class="transcript" x-text="drawer.transcript || '(empty)'"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Toasts -->
+  <div class="toast-wrap">
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.kind" x-text="t.text"></div>
+    </template>
+  </div>
+
+</div>
+</body>
+</html>
