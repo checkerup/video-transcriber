@@ -183,14 +183,10 @@ window.app = function () {
 
     onDrop(ev) {
       this.dragHot = false;
-      const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
-      if (f && f.path) {
-        // Electron/PyWebView desktop drops expose .path on the File.
-        this.process.file = f.path;
-      } else if (f) {
-        // Browser fallback: no path available; warn the user.
-        this.toast("Drop didn't expose a path — click the zone to use the file picker.", "err");
-      }
+      // pywebview's HTML5 drop never gives a real OS file path. Fall
+      // back to the native file picker.
+      this.toast("Opening file picker (drag-drop can't pass paths in pywebview).", "ok", 2500);
+      await this.pickFile();
     },
 
     // ----- process job -----

@@ -118,7 +118,8 @@ window.copyBootLog = function (btn) {
                @dragleave.prevent="dragHot=false"
                @drop.prevent="onDrop($event)">
             <div class="big">📥</div>
-            <div>Drop a video / audio file here, or <b>click to browse</b></div>
+            <div><b>Click to browse</b> for a video or audio file</div>
+            <div class="tiny muted" style="margin-top:6px">(drag-drop isn't supported by pywebview yet)</div>
             <div class="file" x-show="process.file" x-text="process.file"></div>
           </div>
         </div>

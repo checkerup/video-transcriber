@@ -160,7 +160,7 @@ class JsApi:
             return None
         if kinds == "video":
             file_types = (
-                "Video / Audio (*.mp4;*.mkv;*.avi;*.mov;*.webm;*.mp3;*.wav;*.m4a)",
+                "Video and Audio (*.mp4;*.mkv;*.avi;*.mov;*.webm;*.mp3;*.wav;*.m4a)",
                 "All files (*.*)",
             )
         elif kinds == "transcript":
