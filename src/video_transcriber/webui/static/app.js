@@ -87,6 +87,19 @@ window.app = function () {
         savedAt: null,
         testResult: null,
       },
+      llm: {
+        provider: "gemini",
+        api_key: "",
+        api_base: "",
+        model: "gemini-1.5-flash",
+        prompt: "",
+        system_prompt: "",
+        temperature: 0.3,
+        max_output_tokens: 8192,
+        language: "auto",
+        savedAt: null,
+        testResult: null,
+      },
     },
 
     drawer: {
@@ -163,6 +176,7 @@ window.app = function () {
       this._syncProcessFromConfig();
       // seed Telegram form from config
       this._syncTgFromConfig();
+      this._syncLLMFromConfig();
     },
 
     // ----- file picking -----
@@ -321,6 +335,57 @@ window.app = function () {
       this.process.diarize = !!d.enabled;
       if (d.cluster_threshold) this.process.cluster_threshold = +d.cluster_threshold;
       if (d.num_speakers) this.process.num_speakers = +d.num_speakers;
+    },
+
+
+    _syncLLMFromConfig() {
+      const s = (this.config && this.config.summarization) || {};
+      this.settings.llm.provider = s.provider || "gemini";
+      this.settings.llm.api_key = s.api_key || "";
+      this.settings.llm.api_base = s.api_base || "";
+      this.settings.llm.model = s.model || "gemini-1.5-flash";
+      this.settings.llm.prompt = s.prompt || "";
+      this.settings.llm.system_prompt = s.system_prompt || "";
+      this.settings.llm.temperature = typeof s.temperature === "number" ? s.temperature : 0.3;
+      this.settings.llm.max_output_tokens = +s.max_output_tokens || 8192;
+      this.settings.llm.language = s.language || "auto";
+    },
+
+    async saveLLM() {
+      try {
+        const patch = {
+          "summarization.provider": this.settings.llm.provider,
+          "summarization.api_key": this.settings.llm.api_key,
+          "summarization.api_base": this.settings.llm.api_base,
+          "summarization.model": this.settings.llm.model,
+          "summarization.prompt": this.settings.llm.prompt,
+          "summarization.system_prompt": this.settings.llm.system_prompt,
+          "summarization.temperature": +this.settings.llm.temperature || 0.3,
+          "summarization.max_output_tokens": +this.settings.llm.max_output_tokens || 8192,
+          "summarization.language": this.settings.llm.language,
+        };
+        const res = await call("update_config", patch);
+        if (res.ok) {
+          this.settings.llm.savedAt = Date.now();
+          this.toast("AI / LLM settings saved.", "ok");
+          this.config = await call("get_config");
+        } else {
+          this.toast(res.error || "Save failed", "err", 8000);
+        }
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    async testLLM() {
+      this.settings.llm.testResult = null;
+      try {
+        const res = await call("test_llm");
+        this.settings.llm.testResult = res;
+        this.toast(res.ok ? ("LLM OK: " + res.msg) : ("LLM error: " + (res.msg || res.error)),
+                   res.ok ? "ok" : "err", 6000);
+      } catch (e) {
+        this.settings.llm.testResult = { ok: false, msg: String(e) };
+        this.toast(String(e), "err");
+      }
     },
 
     _syncTgFromConfig() {

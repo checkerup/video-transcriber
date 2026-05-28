@@ -83,10 +83,17 @@ class ProcessWatcherConfig:
 @dataclass
 class SummarizationConfig:
     enabled: bool = False
+    # Provider: "gemini" (default), "openai", "anthropic", "openrouter",
+    # or "custom" (any OpenAI-compatible endpoint via api_base).
     provider: str = "gemini"
     api_key: str = ""
+    api_base: str = ""        # Custom base URL (only required for provider="custom").
     model: str = "gemini-1.5-flash"
-    prompt: str = ""
+    prompt: str = ""          # If empty, a sensible default is used (see summarizer.py).
+    system_prompt: str = ""  # Optional system instruction (OpenAI / Anthropic style).
+    temperature: float = 0.3
+    max_output_tokens: int = 8192
+    language: str = "auto"   # "auto" = follow transcript language; or "ru", "en", "zh", ...
 
 
 @dataclass
@@ -165,6 +172,23 @@ def _as_list(val, default: list) -> list:
     if isinstance(val, list):
         return [str(item).strip() for item in val]
     return default
+
+
+def _llm_api_key_from_env(provider: str) -> str | None:
+    """Pick an API key from environment variables based on the configured LLM provider."""
+    p = (provider or "").lower().strip()
+    env_map = {
+        "gemini":     ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        "openai":     ["OPENAI_API_KEY"],
+        "anthropic":  ["ANTHROPIC_API_KEY"],
+        "openrouter": ["OPENROUTER_API_KEY"],
+        "custom":     ["LLM_API_KEY"],
+    }
+    for var in env_map.get(p, []):
+        val = os.getenv(var)
+        if val:
+            return val
+    return None
 
 
 def _get_dict_section(raw: dict, name: str) -> dict:
@@ -285,9 +309,14 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
         summarization=SummarizationConfig(
             enabled=_as_bool(sum_raw.get("enabled"), default_sum.enabled),
             provider=str(sum_raw.get("provider") or default_sum.provider),
-            api_key=str(sum_raw.get("api_key") or os.getenv("GEMINI_API_KEY") or default_sum.api_key or ""),
+            api_key=str(sum_raw.get("api_key") or _llm_api_key_from_env(str(sum_raw.get("provider") or default_sum.provider)) or default_sum.api_key or ""),
+            api_base=str(sum_raw.get("api_base") or default_sum.api_base),
             model=str(sum_raw.get("model") or default_sum.model),
             prompt=str(sum_raw.get("prompt") or default_sum.prompt),
+            system_prompt=str(sum_raw.get("system_prompt") or default_sum.system_prompt),
+            temperature=float(sum_raw.get("temperature") or default_sum.temperature),
+            max_output_tokens=int(sum_raw.get("max_output_tokens") or default_sum.max_output_tokens),
+            language=str(sum_raw.get("language") or default_sum.language),
         ),
         diarization=DiarizationConfig(
             enabled=_as_bool(diar_raw.get("enabled"), default_diar.enabled),

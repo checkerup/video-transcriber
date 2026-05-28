@@ -349,6 +349,80 @@ window.copyBootLog = function (btn) {
           </div>
         </div>
 
+        <!-- ===== AI / LLM card ===== -->
+        <div class="card">
+          <h2>AI / LLM (for summarization &amp; future LLM features)</h2>
+          <div class="tiny muted" style="margin-bottom:10px">
+            Pick a provider, paste an API key, and choose a model. The same settings drive
+            transcript summarization and any future LLM-powered features.
+          </div>
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Provider</span>
+              <select x-model="settings.llm.provider">
+                <option value="gemini">Gemini (Google)</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="custom">Custom (OpenAI-compatible)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="lbl">Model</span>
+              <input type="text" x-model="settings.llm.model" placeholder="e.g. gemini-1.5-flash" />
+            </label>
+          </div>
+          <div class="row">
+            <label class="field grow">
+              <span class="lbl">API key</span>
+              <input type="password" x-model="settings.llm.api_key" placeholder="paste key, or leave empty to use env var" />
+            </label>
+            <label class="field" x-show="settings.llm.provider === 'custom'">
+              <span class="lbl">API base URL</span>
+              <input type="text" x-model="settings.llm.api_base" placeholder="https://your.endpoint/v1" />
+            </label>
+          </div>
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Temperature</span>
+              <input type="number" step="0.05" min="0" max="2" x-model.number="settings.llm.temperature" />
+            </label>
+            <label class="field">
+              <span class="lbl">Max output tokens</span>
+              <input type="number" step="256" min="64" max="200000" x-model.number="settings.llm.max_output_tokens" />
+            </label>
+            <label class="field">
+              <span class="lbl">Output language</span>
+              <select x-model="settings.llm.language">
+                <option value="auto">Auto (match transcript)</option>
+                <option value="ru">Russian</option>
+                <option value="en">English</option>
+                <option value="zh">Chinese</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+              </select>
+            </label>
+          </div>
+          <label class="field" style="margin-top:10px">
+            <span class="lbl">System prompt (optional)</span>
+            <textarea rows="2" x-model="settings.llm.system_prompt" placeholder="e.g. You are a precise meeting summarizer..."></textarea>
+          </label>
+          <label class="field" style="margin-top:10px">
+            <span class="lbl">User prompt (optional, use {text} for the transcript)</span>
+            <textarea rows="4" x-model="settings.llm.prompt" placeholder="Leave empty for the built-in default"></textarea>
+          </label>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" @click="saveLLM()">💾 Save AI settings</button>
+            <button class="btn ghost" @click="testLLM()" :disabled="!settings.llm.api_key && settings.llm.provider !== 'custom'">🧪 Test connection</button>
+            <span class="tiny muted" x-show="settings.llm.savedAt"
+                  x-text="`Saved ${new Date(settings.llm.savedAt).toLocaleTimeString()}`"></span>
+            <span class="tiny" x-show="settings.llm.testResult"
+                  :class="settings.llm.testResult.ok ? 'ok' : 'err'"
+                  x-text="settings.llm.testResult ? settings.llm.testResult.msg : ''"></span>
+          </div>
+        </div>
+
         <!-- ===== Telegram card ===== -->
         <div class="card">
           <h2>Telegram</h2>

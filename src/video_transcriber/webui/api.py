@@ -110,6 +110,17 @@ class JsApi:
         except _r.RequestException as e:
             return {"ok": False, "error": str(e)}
 
+    def test_llm(self) -> dict:
+        """Hit the configured LLM provider with a tiny sample to confirm credentials work."""
+        from ..summarizer import generate_summary
+        provider = (self.config.summarization.provider or "gemini").lower()
+        if not self.config.summarization.api_key:
+            return {"ok": False, "error": "summarization.api_key is not set"}
+        result = generate_summary("Hello, this is a test transcript.", provider=provider)
+        if result:
+            return {"ok": True, "msg": f"{provider}: works"}
+        return {"ok": False, "error": "LLM provider returned empty"}
+
     def save_config_yaml(self, text: str) -> dict:
         """Validate + write raw yaml text. Returns reloaded config or error."""
         try:
