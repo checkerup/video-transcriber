@@ -181,7 +181,7 @@ window.app = function () {
       }
     },
 
-    onDrop(ev) {
+    async onDrop(ev) {
       this.dragHot = false;
       // pywebview's HTML5 drop never gives a real OS file path. Fall
       // back to the native file picker.
