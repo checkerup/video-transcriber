@@ -356,3 +356,58 @@ textarea.yaml {
 .tiny.ok  { color: var(--ok); }
 .tiny.err { color: var(--err); }
 input[type="password"] { /* match text input styles */ }
+/* ===================== Responsive ===================== */
+
+/* Wide screens: keep sidebar fixed, lots of breathing room */
+@media (min-width: 1400px) {
+  .app { grid-template-columns: 260px 1fr; }
+  .main-head, .main-body { padding-left: 32px; padding-right: 32px; }
+}
+
+/* Tablet / smaller laptop: shrink sidebar */
+@media (max-width: 1100px) {
+  .app { grid-template-columns: 200px 1fr; }
+  .main-head, .main-body { padding-left: 18px; padding-right: 18px; }
+  .nav-item .hint { display: none; }
+}
+
+/* Narrow window: sidebar collapses to a top bar with icons + labels */
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .sidebar {
+    flex-direction: row;
+    align-items: center;
+    height: auto;
+    padding: 8px 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .brand { margin-right: 12px; flex-shrink: 0; }
+  .nav-item {
+    padding: 6px 10px;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .nav-item .hint, .nav-spacer, .nav-foot { display: none; }
+  .main-head, .main-body { padding-left: 14px; padding-right: 14px; }
+}
+
+/* Tight mobile-ish */
+@media (max-width: 560px) {
+  .row { flex-direction: column; gap: 8px; }
+  .card { padding: 12px; }
+  .main-head h1 { font-size: 16px; }
+  .main-head { padding-top: 12px; padding-bottom: 8px; }
+  .btn-row { flex-direction: column; }
+  .btn-row .btn { width: 100%; }
+}
+
+/* Boot diag bar should never push main content on tiny screens */
+@media (max-height: 600px) {
+  #boot-log { max-height: 140px !important; }
+}

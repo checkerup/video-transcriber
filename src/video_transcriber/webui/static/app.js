@@ -159,13 +159,8 @@ window.app = function () {
       try { this.hardware = await call("hardware"); } catch (e) { console.error(e); }
       try { this.history = await call("list_history"); } catch (e) { console.error(e); }
       try { this.settings.yaml = await call("get_config_yaml"); } catch (e) { console.error(e); }
-      // seed diarize toggle from config
-      if (this.config && this.config.diarization) {
-        this.process.diarize = !!this.config.diarization.enabled;
-        if (this.config.diarization.cluster_threshold) {
-          this.process.cluster_threshold = +this.config.diarization.cluster_threshold;
-        }
-      }
+      // seed Process tab form fields from config (user's saved defaults)
+      this._syncProcessFromConfig();
       // seed Telegram form from config
       this._syncTgFromConfig();
     },
@@ -252,10 +247,12 @@ window.app = function () {
           else this.logTail = await call("get_log_tail").catch(() => []);
         } catch (e) {
           // ignore transient errors
+        } finally {
+          const delay = this.activeJob ? 1000 : 3000;
+          this._jobsTimer = setTimeout(tick, delay);
         }
       };
       tick();
-      this._jobsTimer = setInterval(tick, 700);
     },
 
     async refreshHistory() {
@@ -310,6 +307,20 @@ window.app = function () {
         this.settings.yaml = await call("get_config_yaml");
         this.toast("Reloaded.");
       } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    _syncProcessFromConfig() {
+      const c = this.config || {};
+      const t = c.transcription || {};
+      const d = c.diarization || {};
+      const s = c.summarization || {};
+      if (t.model_size) this.process.model_size = t.model_size;
+      if (typeof t.language === "string") this.process.language = t.language;
+      if (typeof t.translate_to === "string") this.process.translate_to = t.translate_to;
+      this.process.summarize = !!s.enabled;
+      this.process.diarize = !!d.enabled;
+      if (d.cluster_threshold) this.process.cluster_threshold = +d.cluster_threshold;
+      if (d.num_speakers) this.process.num_speakers = +d.num_speakers;
     },
 
     _syncTgFromConfig() {

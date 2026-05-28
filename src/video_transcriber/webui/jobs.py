@@ -57,7 +57,7 @@ class JobState:
             "eta_human": format_hms(self.eta_seconds) if self.eta_seconds is not None else None,
             "result": self.result,
             "error": self.error,
-            "log_tail": list(self.log_tail),
+            "log_tail": list(self.log_tail)[-30:],
         }
 
 
