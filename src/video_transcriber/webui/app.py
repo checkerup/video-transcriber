@@ -16,9 +16,9 @@ def launch(config: AppConfig, config_path: Path, project_root: Path,
            *, debug: bool = False, port: int | None = None) -> None:
     """Open the desktop window. Blocks until the user closes it.
 
-    If ``port`` is given, the same UI is also served over HTTP on that port
-    (so the user can open it in any browser on the same machine). Otherwise
-    runs purely as a desktop window.
+    The page is loaded over a ``file://`` URI; relative script/style paths
+    resolve correctly without needing an embedded HTTP server. The ``port``
+    parameter is reserved for a future use.
     """
     import webview
 
@@ -32,7 +32,7 @@ def launch(config: AppConfig, config_path: Path, project_root: Path,
 
     window = webview.create_window(
         title=title,
-        url=str(index_html),
+        url=str(index_html.resolve().as_uri()),
         js_api=api,
         width=1180,
         height=780,
@@ -47,6 +47,4 @@ def launch(config: AppConfig, config_path: Path, project_root: Path,
 
     window.events.loaded += _on_loaded
 
-    # http_server lets the same page be reachable in a browser too;
-    # PyWebView serves on a random port unless given one.
-    webview.start(debug=debug, http_server=True, http_port=port)
+    webview.start(debug=debug)
