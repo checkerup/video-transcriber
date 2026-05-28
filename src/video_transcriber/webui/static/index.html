@@ -418,7 +418,7 @@ window.copyBootLog = function (btn) {
             <span class="tiny muted" x-show="settings.llm.savedAt"
                   x-text="`Saved ${new Date(settings.llm.savedAt).toLocaleTimeString()}`"></span>
             <span class="tiny" x-show="settings.llm.testResult"
-                  :class="settings.llm.testResult.ok ? 'ok' : 'err'"
+                  :class="settings.llm.testResult && settings.llm.testResult.ok ? 'ok' : 'err'"
                   x-text="settings.llm.testResult ? settings.llm.testResult.msg : ''"></span>
           </div>
         </div>
