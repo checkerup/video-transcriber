@@ -1,6 +1,7 @@
 from typing import Any
 import html
 import logging
+from pathlib import Path
 
 import requests
 
@@ -18,6 +19,7 @@ def send_notification(
     transcript_path: Any,
     error: Any = None,
     summary_path: Any = None,
+    timing_summary: Any = None,
 ) -> bool:
     if not config.telegram.bot_token or not config.telegram.chat_id:
         logger.warning("Telegram not configured — skipping notification")
@@ -66,6 +68,8 @@ def send_notification(
         lines.append(f"📝 <b>Текст:</b> <code>{transcript_escaped}</code>")
     if summary_path_escaped is not None:
         lines.append(f"📊 <b>Сводка:</b> <code>{summary_path_escaped}</code>")
+    if timing_summary:
+        lines.append(f"⏱ <b>Время обработки:</b> <code>{html.escape(str(timing_summary))}</code>")
 
     base_text = "\n".join(lines)
 
