@@ -425,9 +425,10 @@ def main():
         run_record(config)
     elif args.gui:
         from video_transcriber.webui import launch as _launch_gui
+        gui_cfg_path = config_path if config_path else (project_root / "config.yaml")
         _launch_gui(
             config=config,
-            config_path=config_path,
+            config_path=gui_cfg_path,
             project_root=project_root,
             debug=args.gui_debug,
         )
