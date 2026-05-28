@@ -424,8 +424,8 @@ def main():
     elif args.record:
         run_record(config)
     elif args.gui:
-        import video_transcriber.webui.launch
-        video_transcriber.webui.launch.launch(
+        from video_transcriber.webui import launch as _launch_gui
+        _launch_gui(
             config=config,
             config_path=config_path,
             project_root=project_root,
