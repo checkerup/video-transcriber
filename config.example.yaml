@@ -25,6 +25,15 @@ transcription:
 telegram:
   bot_token: ""
   chat_id: ""
+  # How to deliver the transcript itself:
+  #   "file" — attach the produced .txt/.srt/.vtt as a Telegram document (default).
+  #   "text" — paste the transcript text inline in chunked messages.
+  #   "none" — only send the short metadata message.
+  send_transcript: "file"
+  send_summary_file: false
+  attach_audio: false
+  attach_video: false
+  max_attachment_mb: 20
 
 recorder:
   fps: 30

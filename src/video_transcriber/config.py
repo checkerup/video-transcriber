@@ -54,6 +54,18 @@ class TranscriptionConfig:
 class TelegramConfig:
     bot_token: str = ""
     chat_id: str = ""
+    # How to deliver the transcript itself.
+    #   "file" — send the transcript file as a document (default).
+    #   "text" — inline the transcript text in messages (chunked at 4000ch).
+    #   "none" — just the metadata message, no transcript content.
+    send_transcript: str = "file"
+    # If True and a summary file exists, also attach it as a document.
+    send_summary_file: bool = False
+    # If True, also attach the produced audio/video as documents (heavy).
+    attach_audio: bool = False
+    attach_video: bool = False
+    # Telegram bot API hard limit is 50
+    max_attachment_mb: int = 49
 
 
 @dataclass
@@ -240,6 +252,27 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
         telegram=TelegramConfig(
             bot_token=bot_token,
             chat_id=chat_id,
+            send_transcript=str(
+                tg_raw.get("send_transcript")
+                if tg_raw.get("send_transcript") is not None
+                else TelegramConfig.send_transcript
+            ).lower().strip() or "file",
+            send_summary_file=_as_bool(
+                tg_raw.get("send_summary_file"),
+                TelegramConfig.send_summary_file
+            ),
+            attach_audio=_as_bool(
+                tg_raw.get("attach_audio"),
+                TelegramConfig.attach_audio
+            ),
+            attach_video=_as_bool(
+                tg_raw.get("attach_video"),
+                TelegramConfig.attach_video
+            ),
+            max_attachment_mb=_as_int(
+                tg_raw.get("max_attachment_mb"),
+                TelegramConfig.max_attachment_mb
+            ),
         ),
         recorder=RecorderConfig(
             fps=fps,

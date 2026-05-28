@@ -89,6 +89,27 @@ class JsApi:
         except FileNotFoundError:
             return ""
 
+    def send_telegram_test(self) -> dict:
+        """Send a one-shot 'connection works' message to the configured chat."""
+        import requests as _r
+        tg = self.config.telegram
+        if not tg.bot_token or not tg.chat_id:
+            return {"ok": False, "error": "Telegram is not configured (bot_token + chat_id)."}
+        try:
+            resp = _r.post(
+                f"https://api.telegram.org/bot{tg.bot_token}/sendMessage",
+                json={
+                    "chat_id": tg.chat_id,
+                    "text": "✅ <b>video-transcriber</b>: connection works.",
+                    "parse_mode": "HTML",
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            return {"ok": True}
+        except _r.RequestException as e:
+            return {"ok": False, "error": str(e)}
+
     def save_config_yaml(self, text: str) -> dict:
         """Validate + write raw yaml text. Returns reloaded config or error."""
         try:

@@ -256,6 +256,75 @@
           </div>
         </div>
 
+        <!-- ===== Telegram card ===== -->
+        <div class="card">
+          <h2>Telegram</h2>
+          <div class="row">
+            <label class="field" style="min-width:280px">
+              <span class="lbl">Bot token</span>
+              <input type="password" autocomplete="off"
+                     x-model="settings.tg.bot_token"
+                     placeholder="123456:ABC…" />
+            </label>
+            <label class="field" style="min-width:200px">
+              <span class="lbl">Chat ID</span>
+              <input type="text" x-model="settings.tg.chat_id"
+                     placeholder="-1001234567890" />
+            </label>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <span class="lbl">Send transcript</span>
+            <div class="row" style="gap:18px">
+              <label class="radio">
+                <input type="radio" value="file" x-model="settings.tg.send_transcript" />
+                <span>📎 As file (default)</span>
+              </label>
+              <label class="radio">
+                <input type="radio" value="text" x-model="settings.tg.send_transcript" />
+                <span>💬 Inline text</span>
+              </label>
+              <label class="radio">
+                <input type="radio" value="none" x-model="settings.tg.send_transcript" />
+                <span>🚫 Don't send</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <span class="lbl">Also attach</span>
+            <div class="row" style="gap:18px; flex-wrap:wrap">
+              <label class="check">
+                <input type="checkbox" x-model="settings.tg.send_summary_file" />
+                <span>📖 Summary file</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" x-model="settings.tg.attach_audio" />
+                <span>🎧 Audio</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" x-model="settings.tg.attach_video" />
+                <span>🎬 Video</span>
+              </label>
+            </div>
+            <div class="tiny muted" style="margin-top:6px">
+              Heavy attachments are skipped automatically if they exceed Telegram's
+              50 MB bot upload limit.
+            </div>
+          </div>
+
+          <div class="btn-row" style="margin-top:14px">
+            <button class="btn primary" @click="saveTelegram()">💾 Save Telegram</button>
+            <button class="btn ghost" @click="testTelegram()">📤 Send test message</button>
+            <span class="spacer"></span>
+            <span class="tiny muted" x-show="settings.tg.savedAt"
+                  x-text="`Saved ${new Date(settings.tg.savedAt).toLocaleTimeString()}`"></span>
+            <span class="tiny" :class="settings.tg.testResult==='ok' ? 'ok' : 'err'"
+                  x-show="settings.tg.testResult"
+                  x-text="settings.tg.testResult==='ok' ? '✓ sent' : ('✗ ' + settings.tg.testResult)"></span>
+          </div>
+        </div>
+
         <div class="card">
           <h2>Raw config.yaml</h2>
           <textarea class="yaml" x-model="settings.yaml" spellcheck="false"></textarea>

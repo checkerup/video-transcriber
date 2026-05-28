@@ -226,3 +226,30 @@ def test_jobstate_snapshot_round_trip():
     assert snap["elapsed_human"] == "00:00:42"
     assert snap["eta_human"] == "00:00:42"
     assert isinstance(snap["log_tail"], list)
+
+
+# ---------- send_telegram_test ----------
+
+def test_send_telegram_test_not_configured(tmp_path):
+    from video_transcriber.config import AppConfig, TelegramConfig
+    from video_transcriber.webui.api import JsApi
+    cfg = AppConfig()
+    api = JsApi(cfg, tmp_path / "config.yaml", tmp_path)
+    res = api.send_telegram_test()
+    assert res["ok"] is False
+    assert "configured" in res["error"].lower()
+
+
+def test_send_telegram_test_calls_telegram(tmp_path):
+    from unittest.mock import patch
+    from video_transcriber.config import AppConfig, TelegramConfig
+    from video_transcriber.webui.api import JsApi
+    cfg = AppConfig(telegram=TelegramConfig(bot_token="TOK", chat_id="42"))
+    api = JsApi(cfg, tmp_path / "config.yaml", tmp_path)
+    with patch("requests.post") as mock_post:
+        mock_post.return_value.raise_for_status.return_value = None
+        res = api.send_telegram_test()
+        assert res["ok"] is True
+        url = mock_post.call_args.args[0]
+        assert "/botTOK/sendMessage" in url
+        assert mock_post.call_args.kwargs["json"]["chat_id"] == "42"

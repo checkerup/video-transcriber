@@ -335,3 +335,21 @@ textarea.yaml {
 .gap-sm { display: flex; gap: 8px; }
 .spacer { flex: 1; }
 .hidden { display: none !important; }
+
+/* radio / checkbox inline labels (Settings → Telegram card) */
+.radio, .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--fg);
+  user-select: none;
+}
+.radio input[type="radio"],
+.check input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.tiny.ok  { color: var(--ok); }
+.tiny.err { color: var(--err); }
+input[type="password"] { /* match text input styles */ }

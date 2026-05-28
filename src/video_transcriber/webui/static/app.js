@@ -74,6 +74,16 @@ window.app = function () {
     settings: {
       yaml: "",
       savedAt: null,
+      tg: {
+        bot_token: "",
+        chat_id: "",
+        send_transcript: "file",
+        send_summary_file: false,
+        attach_audio: false,
+        attach_video: false,
+        savedAt: null,
+        testResult: null,
+      },
     },
 
     drawer: {
@@ -138,6 +148,8 @@ window.app = function () {
           this.process.cluster_threshold = +this.config.diarization.cluster_threshold;
         }
       }
+      // seed Telegram form from config
+      this._syncTgFromConfig();
     },
 
     // ----- file picking -----
@@ -284,6 +296,49 @@ window.app = function () {
         this.settings.yaml = await call("get_config_yaml");
         this.toast("Reloaded.");
       } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    _syncTgFromConfig() {
+      const tg = (this.config && this.config.telegram) || {};
+      this.settings.tg.bot_token = tg.bot_token || "";
+      this.settings.tg.chat_id = tg.chat_id || "";
+      this.settings.tg.send_transcript = tg.send_transcript || "file";
+      this.settings.tg.send_summary_file = !!tg.send_summary_file;
+      this.settings.tg.attach_audio = !!tg.attach_audio;
+      this.settings.tg.attach_video = !!tg.attach_video;
+    },
+
+    async saveTelegram() {
+      try {
+        const patch = {
+          "telegram.bot_token": this.settings.tg.bot_token,
+          "telegram.chat_id": this.settings.tg.chat_id,
+          "telegram.send_transcript": this.settings.tg.send_transcript,
+          "telegram.send_summary_file": !!this.settings.tg.send_summary_file,
+          "telegram.attach_audio": !!this.settings.tg.attach_audio,
+          "telegram.attach_video": !!this.settings.tg.attach_video,
+        };
+        const res = await call("update_config", patch);
+        if (res.ok) {
+          this.config = res.config;
+          this.settings.tg.savedAt = Date.now();
+          this.toast("Telegram settings saved.");
+        } else {
+          this.toast(res.error || "save failed", "err", 8000);
+        }
+      } catch (e) { this.toast(String(e), "err"); }
+    },
+
+    async testTelegram() {
+      this.settings.tg.testResult = null;
+      try {
+        const res = await call("send_telegram_test");
+        this.settings.tg.testResult = res.ok ? "ok" : (res.error || "failed");
+        if (!res.ok) this.toast(res.error || "test failed", "err", 8000);
+      } catch (e) {
+        this.settings.tg.testResult = String(e);
+        this.toast(String(e), "err");
+      }
     },
 
     // ----- drawer / history actions -----
