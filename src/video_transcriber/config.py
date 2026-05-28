@@ -85,19 +85,23 @@ class DiarizationConfig:
     # Speaker-embedding model id for the voxterm backend.
     # Supported: "cam++" (default, fast), "eres2net" (slightly better).
     model: str = "cam++"
-    # Cosine-distance clustering threshold (voxterm backend). Lower = more
-    # speakers / harder to merge. 0.5 is a sensible default for 16k speech.
-    cluster_threshold: float = 0.5
+    # Cosine-distance clustering threshold (voxterm backend). Higher = more
+    # permissive grouping = fewer speakers detected. 0.5 is too aggressive on
+    # noisy long-form recordings (it splits one person across many clusters);
+    # 0.7 is a better default for typical meeting / call audio.
+    cluster_threshold: float = 0.7
     # Number of CPU threads used by the ONNX runtime for diarization.
     num_threads: int = 1
-    # Min duration (s) of an active speech region (voxterm backend).
-    min_duration_on: float = 0.3
+    # Minimum on/off speech durations passed to the segmentation model.
+    # Slightly larger
+    min_duration_on: float = 0.5
     # Min duration (s) of a silence gap (voxterm backend).
-    min_duration_off: float = 0.5
+    min_duration_off: float = 0.7
     # HF API token for the legacy pyannote backend (ignored by voxterm).
     auth_token: str = ""
     min_speakers: int | None = None
     max_speakers: int | None = None
+    num_speakers: int | None = None
 
 
 @dataclass
@@ -275,6 +279,7 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
             auth_token=str(diar_raw.get("auth_token") or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or default_diar.auth_token or ""),
             min_speakers=None if diar_raw.get("min_speakers") is None else _as_int(diar_raw.get("min_speakers"), 0) or None,
             max_speakers=None if diar_raw.get("max_speakers") is None else _as_int(diar_raw.get("max_speakers"), 0) or None,
+            num_speakers=None if diar_raw.get("num_speakers") is None else _as_int(diar_raw.get("num_speakers"), 0) or None,
         ),
     )
 

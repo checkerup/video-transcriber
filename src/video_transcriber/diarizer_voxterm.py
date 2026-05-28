@@ -184,9 +184,10 @@ def diarize_audio_voxterm(audio_path: str, config) -> list[dict]:
     diar_cfg = config.diarization
     embedding_model_name = getattr(diar_cfg, "model", None) or "cam++"
     num_threads = max(1, int(getattr(diar_cfg, "num_threads", 1) or 1))
-    threshold = float(getattr(diar_cfg, "cluster_threshold", 0.5) or 0.5)
+    threshold = float(getattr(diar_cfg, "cluster_threshold", 0.7) or 0.7)
     min_speakers = getattr(diar_cfg, "min_speakers", None)
     max_speakers = getattr(diar_cfg, "max_speakers", None)
+    num_speakers = getattr(diar_cfg, "num_speakers", None)
 
     # Load audio (decoder via libsndfile handles wav/flac; for mp3/m4a we use
     # ffmpeg as a fallback. Most of our audio_path inputs come straight from
@@ -218,7 +219,10 @@ def diarize_audio_voxterm(audio_path: str, config) -> list[dict]:
 
     # Clustering: sherpa-onnx exposes num_clusters (=-1 for auto) and
     # cosine-distance threshold (lower = harder to merge speakers).
-    if min_speakers is not None and max_speakers is not None and min_speakers == max_speakers:
+    # num_speakers (exact override) wins over min/max heuristics
+    if num_speakers is not None and num_speakers > 0:
+        num_clusters = int(num_speakers)
+    elif min_speakers is not None and max_speakers is not None and min_speakers == max_speakers:
         num_clusters = int(min_speakers)
     elif max_speakers is not None and max_speakers > 0:
         # Treat as a hint via threshold tweak; sherpa-onnx itself only supports

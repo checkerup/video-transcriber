@@ -249,12 +249,49 @@ def main():
         help="Speaker-embedding model for the voxterm backend (default: cam++).",
     )
     parser.add_argument(
-        "--record-live", type=str, default=None,
+        "--record-live",
         choices=["voice", "screen", "full"],
+        default=None,
         help=(
             "Live recording mode: 'voice' (mic only), 'screen' (screen+mic), "
-            "or 'full' (screen+mic+system audio). Ctrl+C to stop."
+            "or 'full' (screen+mic+system audio)."
         ),
+    )
+    parser.add_argument(
+        "--retag-speakers",
+        type=str,
+        default=None,
+        metavar="TRANSCRIPT",
+        help=(
+            "Re-tag speakers on an existing transcript (.txt/.srt/.vtt) "
+            "WITHOUT re-running Whisper. Uses --audio if given, else "
+            "auto-discovers the audio file next to the transcript. "
+            "Combine with --num-speakers / --cluster-threshold / "
+            "--diar-model to tune."
+        ),
+    )
+    parser.add_argument(
+        "--audio",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Explicit audio file to use with --retag-speakers.",
+    )
+    parser.add_argument(
+        "--num-speakers",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Force exact number of speakers (overrides clustering threshold)."
+        ),
+    )
+    parser.add_argument(
+        "--cluster-threshold",
+        type=float,
+        default=None,
+        metavar="FLOAT",
+        help="Clustering threshold for speaker separation.",
     )
 
     args = parser.parse_args()
@@ -360,7 +397,17 @@ def main():
         config.transcription.device,
     )
 
-    if args.file:
+    if args.retag_speakers:
+        from .retag_speakers import retag_speakers
+        retag_speakers(
+            args.retag_speakers,
+            config,
+            audio_path=args.audio,
+            num_speakers=args.num_speakers,
+            cluster_threshold=args.cluster_threshold,
+        )
+        sys.exit(0)
+    elif args.file:
         run_once(config, args.file)
     elif args.record_live:
         run_live(config, args.record_live)

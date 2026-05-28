@@ -58,16 +58,23 @@ diarization:
   # "eres2net" : larger, slightly better in noisy/multi-speaker audio
   model: "cam++"
 
-  # Cosine-distance threshold used by the clustering step (voxterm backend).
-  # Lower values => more clusters (split close-sounding speakers).
-  cluster_threshold: 0.5
+  # Cosine clustering threshold (voxterm backend). Higher = more permissive
+  # grouping = fewer speakers detected. 0.7 is a sensible default for
+  # noisy meeting / call audio; lower it (0.5) only if you want stricter
+  # separation in clean recordings.
+  cluster_threshold: 0.7
 
-  # CPU threads used by the ONNX runtime.
+  # Number of CPU threads used by the ONNX runtime.
   num_threads: 1
 
-  # Voice-activity tuning (voxterm backend).
-  min_duration_on: 0.3       # ignore speech regions shorter than this (s)
-  min_duration_off: 0.5      # ignore silence gaps shorter than this (s)
+  # Speech activity smoothing (seconds). Slightly larger values reduce
+  # the "100 speakers in a long noisy call" artefact.
+  min_duration_on: 0.5
+  min_duration_off: 0.7
+
+  # If you KNOW the exact number of speakers in the recording, you can
+  # provide a hint to the backend.
+  num_speakers: 2
 
   # Used only by the "pyannote" backend.
   auth_token: ""             # HF token. Also picked up from HF_TOKEN env var.
