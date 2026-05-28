@@ -5,11 +5,51 @@
 <title>Video Transcriber</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="stylesheet" href="./style.css" />
-<script defer src="./vendor/alpine.min.js"></script>
-<script defer src="./app.js"></script>
+<script>
+// ---------- visible boot diagnostics (runs before Alpine / app.js) ----------
+window.__boot = [];
+window.bootLog = function (msg, kind) {
+  try {
+    var b = (window.__boot = window.__boot || []);
+    b.push({ t: Date.now(), msg: String(msg), kind: kind || "info" });
+    var el = document.getElementById("boot-status");
+    if (el) {
+      var line = document.createElement("div");
+      line.textContent =
+        new Date().toLocaleTimeString() + " ["
+        + (kind || "info").toUpperCase() + "] " + msg;
+      if (kind === "err") line.style.color = "#ffb4b4";
+      else if (kind === "ok") line.style.color = "#b6f0c2";
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+  } catch (e) { /* swallow */ }
+};
+window.addEventListener("error", function (e) {
+  bootLog(
+    "JS error: " + (e.message || "?") +
+    " @ " + (e.filename || "?") + ":" + (e.lineno || "?"),
+    "err"
+  );
+});
+window.addEventListener("unhandledrejection", function (e) {
+  bootLog("unhandled promise: " + (e.reason && e.reason.message || e.reason || "?"), "err");
+});
+window.addEventListener("DOMContentLoaded", function () { bootLog("DOMContentLoaded"); });
+window.addEventListener("pywebviewready", function () { bootLog("pywebviewready event", "ok"); });
+bootLog("inline boot script ran");
+</script>
+<script defer src="./vendor/alpine.min.js" onerror="bootLog('alpine.min.js failed to load','err')"></script>
+<script defer src="./app.js" onerror="bootLog('app.js failed to load','err')"></script>
 </head>
 <body>
-<div class="app" x-data="app()" x-init="init()">
+<div id="boot-status" style="
+  position:fixed;top:0;right:0;max-width:46vw;max-height:38vh;overflow:auto;
+  background:rgba(15,17,21,0.92);color:#cfd5e3;
+  font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;
+  padding:6px 8px;border-bottom-left-radius:6px;border:1px solid #353c4d;
+  z-index:99999;pointer-events:none;white-space:pre-wrap;">Boot log…</div>
+<div class="app" x-data="app()" x-cloak>
 
   <!-- Sidebar -->
   <aside class="sidebar">

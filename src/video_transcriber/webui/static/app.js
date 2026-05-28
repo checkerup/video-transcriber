@@ -1,5 +1,7 @@
 /* Video Transcriber GUI — Alpine.js controller. */
 
+if (typeof window.bootLog === "function") window.bootLog("app.js loaded");
+
 // ---------- helpers ----------
 
 function api() {
@@ -26,6 +28,7 @@ function fmtSec(s) {
 // ---------- Alpine root ----------
 
 window.app = function () {
+  if (typeof window.bootLog === "function") window.bootLog("app() factory called");
   return {
     // ----- state -----
     version: "1.1",
@@ -115,14 +118,29 @@ window.app = function () {
 
     // ----- bootstrap -----
     async init() {
-      await this.waitForApi();
+      if (typeof window.bootLog === "function") window.bootLog("init() entered");
+      try {
+        if (typeof window.bootLog === "function") window.bootLog("waiting for pywebview.api");
+        await this.waitForApi();
+        if (typeof window.bootLog === "function") window.bootLog("pywebview.api ready", "ok");
+      } catch (e) {
+        if (typeof window.bootLog === "function") window.bootLog("waitForApi: " + e.message, "err");
+        return;
+      }
       try {
         const ping = await call("ping");
-        console.log("api ready", ping);
+        if (typeof window.bootLog === "function")
+          window.bootLog("ping ok: " + JSON.stringify(ping), "ok");
       } catch (e) {
-        console.error(e);
+        if (typeof window.bootLog === "function")
+          window.bootLog("ping failed: " + e.message, "err");
       }
-      await this.refreshAll();
+      try {
+        await this.refreshAll();
+        if (typeof window.bootLog === "function") window.bootLog("init() complete", "ok");
+      } catch (e) {
+        if (typeof window.bootLog === "function") window.bootLog("refreshAll: " + e.message, "err");
+      }
       this.startJobPolling();
     },
 

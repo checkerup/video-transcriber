@@ -1,5 +1,8 @@
 /* Video Transcriber GUI — hand-rolled CSS, no framework. */
 
+/* Hide x-cloak elements until Alpine bootstraps. */
+[x-cloak] { display: none !important; }
+
 :root {
   --bg: #0f1115;
   --bg-elev: #161a22;
