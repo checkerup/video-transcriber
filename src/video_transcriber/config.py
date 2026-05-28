@@ -80,6 +80,21 @@ class SummarizationConfig:
 @dataclass
 class DiarizationConfig:
     enabled: bool = False
+    # Backend: "voxterm" (offline, default) or "pyannote" (HF, legacy).
+    backend: str = "voxterm"
+    # Speaker-embedding model id for the voxterm backend.
+    # Supported: "cam++" (default, fast), "eres2net" (slightly better).
+    model: str = "cam++"
+    # Cosine-distance clustering threshold (voxterm backend). Lower = more
+    # speakers / harder to merge. 0.5 is a sensible default for 16k speech.
+    cluster_threshold: float = 0.5
+    # Number of CPU threads used by the ONNX runtime for diarization.
+    num_threads: int = 1
+    # Min duration (s) of an active speech region (voxterm backend).
+    min_duration_on: float = 0.3
+    # Min duration (s) of a silence gap (voxterm backend).
+    min_duration_off: float = 0.5
+    # HF API token for the legacy pyannote backend (ignored by voxterm).
     auth_token: str = ""
     min_speakers: int | None = None
     max_speakers: int | None = None
@@ -239,6 +254,24 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
         ),
         diarization=DiarizationConfig(
             enabled=_as_bool(diar_raw.get("enabled"), default_diar.enabled),
+            backend=str(diar_raw.get("backend") or default_diar.backend),
+            model=str(diar_raw.get("model") or default_diar.model),
+            cluster_threshold=float(
+                diar_raw.get("cluster_threshold")
+                if diar_raw.get("cluster_threshold") is not None
+                else default_diar.cluster_threshold
+            ),
+            num_threads=_as_int(diar_raw.get("num_threads"), default_diar.num_threads),
+            min_duration_on=float(
+                diar_raw.get("min_duration_on")
+                if diar_raw.get("min_duration_on") is not None
+                else default_diar.min_duration_on
+            ),
+            min_duration_off=float(
+                diar_raw.get("min_duration_off")
+                if diar_raw.get("min_duration_off") is not None
+                else default_diar.min_duration_off
+            ),
             auth_token=str(diar_raw.get("auth_token") or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or default_diar.auth_token or ""),
             min_speakers=None if diar_raw.get("min_speakers") is None else _as_int(diar_raw.get("min_speakers"), 0) or None,
             max_speakers=None if diar_raw.get("max_speakers") is None else _as_int(diar_raw.get("max_speakers"), 0) or None,

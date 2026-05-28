@@ -41,3 +41,41 @@ summarization:
   model: "gemini-1.5-flash"   # can be changed to any Gemini model (e.g. gemini-1.5-pro, gemini-2.0-flash-exp)
   prompt: ""                  # custom prompt, can contain {text} placeholder for the transcript content
 
+# Speaker diarization (who-said-what). Two backends are supported.
+diarization:
+  enabled: false
+
+  # "voxterm" (default): fully offline, no HuggingFace token needed.
+  #     Uses sherpa-onnx with pyannote-3.0 segmentation + 3D-Speaker
+  #     embedding models, auto-downloaded on first use. Cross-platform
+  #     (Win/Mac/Linux). Inspired by https://github.com/dmarzzz/VoxTerm.
+  # "pyannote": legacy backend via pyannote.audio. Requires an HF API token
+  #     and accepting the model terms on HuggingFace.
+  backend: "voxterm"
+
+  # Speaker-embedding model for the voxterm backend.
+  # "cam++"    : 7M params, fast, good quality (default)
+  # "eres2net" : larger, slightly better in noisy/multi-speaker audio
+  model: "cam++"
+
+  # Cosine-distance threshold used by the clustering step (voxterm backend).
+  # Lower values => more clusters (split close-sounding speakers).
+  cluster_threshold: 0.5
+
+  # CPU threads used by the ONNX runtime.
+  num_threads: 1
+
+  # Voice-activity tuning (voxterm backend).
+  min_duration_on: 0.3       # ignore speech regions shorter than this (s)
+  min_duration_off: 0.5      # ignore silence gaps shorter than this (s)
+
+  # Used only by the "pyannote" backend.
+  auth_token: ""             # HF token. Also picked up from HF_TOKEN env var.
+
+  # Optional speaker-count hints (both backends).
+  # min_speakers: 2
+  # max_speakers: 4
+
+# Live recording (`--record-live voice|screen|full`) has no config section;
+# it uses recorder.fps and processing.output_folder from above. The chosen
+# mode is passed via the CLI flag.
