@@ -8,6 +8,12 @@
 > 说话人分离流程的灵感来自 [@dmarzzz](https://github.com/dmarzzz) 的
 > [`VoxTerm`](https://github.com/dmarzzz/VoxTerm) — 完整署名见 [`NOTICE.md`](NOTICE.md)。
 
+> ✨ **此分支提供桌面 GUI**，基于 PyWebView。
+> 安装后运行：`pip install -e .[gui]` → `python -m video_transcriber.main --gui`。
+> 仅需 CLI 的话，请使用平行分支
+> [`feat/voxterm-integration`](https://github.com/checkerup/video-transcriber-voxterm/tree/feat/voxterm-integration)。
+
+
 # Video Transcriber
 
 自动视频转录：监控文件夹或程序启动，录制屏幕，本地转录（免费！），发送 Telegram 通知。
@@ -282,6 +288,34 @@ video-transcriber/
 ├── requirements.txt         # 依赖
 └── LICENSE                  # MIT
 ```
+
+## 🎨 桌面 GUI
+
+基于 PyWebView 的单窗口跨平台 GUI。无构建步骤，~60 KB 静态资源，与 CLI 共享同一管线。所有设置通过 `config.yaml` 同步。
+
+### 安装 + 运行
+
+```bash
+pip install -e .[gui]
+python -m video_transcriber.main --gui
+```
+
+### 标签页
+
+| 标签 | 内容 |
+|---|---|
+| 📥 **Process** | 点击选择文件 → 设置面板（Whisper 模型、语言、翻译、摘要、完整说话人分离配置）→ Start。实时进度（阶段 / 已用 / ETA）+ 最近 30 行日志。可取消正在运行的任务。 |
+| 🎙 **Live** | Voice / Screen / Full 录制，Start/Stop，停止后自动进入转录队列。 |
+| 📋 **History** | 来自 `timing.json` 的历史运行。点击打开转录抽屉，含 **🔁 Retag speakers**（说话人数 + 阈值滑块——仅重跑分离，不重跑 Whisper）。 |
+| ⚙ **Settings** | 文件夹、AI / LLM 卡（供应商单选、API key 掩码、模型、提示词、温度、语言、**🧪 Test connection** 按钮）、Telegram 卡（token + chat-id + 附件开关）、原始 `config.yaml` 编辑器。 |
+| 🔧 **System** | 硬件信息（CPU / GPU / RAM）、stderr 尾部、版本、致谢。 |
+
+### 备注
+
+- Windows 上使用内置 Edge WebView2（Windows 10+ 自带）。
+- 故意禁用了拖拽——pywebview 的 HTML5 drop 不提供真实 OS 路径。拖拽区始终打开原生文件选择器。
+- 自适应轮询：有活动任务时 1000 ms，空闲时 3000 ms。
+- 底部诊断条会显示 JS 错误，干净启动 4 秒后自动收起为小图标。
 
 ## 说话人分离（谁说了什么）
 

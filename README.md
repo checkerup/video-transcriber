@@ -7,6 +7,11 @@
 >
 > The diarization pipeline is inspired by [`VoxTerm`](https://github.com/dmarzzz/VoxTerm)
 > by [@dmarzzz](https://github.com/dmarzzz) — full credits in [`NOTICE.md`](NOTICE.md).
+> ✨ **This branch ships a desktop GUI** built on PyWebView.
+> Launch with `python -m video_transcriber.main --gui` after `pip install -e .[gui]`.
+> If you only need the CLI, the matching CLI-only branch is
+> [`feat/voxterm-integration`](https://github.com/checkerup/video-transcriber-voxterm/tree/feat/voxterm-integration).
+
 
 # Video Transcriber
 
@@ -308,6 +313,34 @@ video-transcriber/
 ├── requirements.txt         # dependencies
 └── LICENSE                  # MIT
 ```
+
+## 🎨 Desktop GUI
+
+A single-window cross-platform GUI built on PyWebView. No build step, ~60 KB of static assets, runs on the same Python pipeline as the CLI. All settings round-trip through `config.yaml`, so the CLI and GUI stay in sync.
+
+### Install + run
+
+```bash
+pip install -e .[gui]
+python -m video_transcriber.main --gui
+```
+
+### Tabs
+
+| Tab | What's there |
+|---|---|
+| 📥 **Process** | Click to browse a file → settings form (Whisper model, language, translate-to, summarize, full diarization block with backend / model / cluster-threshold slider / num-speakers) → Start. Live progress with stage / elapsed / ETA + a 30-line log tail. Cancel in-flight jobs. |
+| 🎙 **Live** | Voice / Screen / Full record mode, Start/Stop, auto-queue for transcription on stop. |
+| 📋 **History** | Past runs from `timing.json` reports. Click a run to open the transcript drawer with **🔁 Retag speakers** controls (num-speakers + threshold slider — re-runs ONLY diarization, no Whisper re-cost). |
+| ⚙ **Settings** | Folders, AI / LLM card (provider radio, API key with mask, model, prompt, temperature, language, **🧪 Test connection** button), Telegram card (token + chat-id + attachment toggles), raw `config.yaml` editor. |
+| 🔧 **System** | Hardware probe (CPU / GPU / RAM), recent stderr tail, version, credits. |
+
+### Notes
+
+- On Windows uses the built-in Edge WebView2 (already shipped with Windows 10+). No Chromium download.
+- Drag-and-drop is intentionally disabled — pywebview's HTML5 drop never gives a real OS file path. The drop zone falls back to the native file picker.
+- Polling is adaptive: 1000 ms while a job is active, 3000 ms when idle.
+- A bottom diagnostic strip surfaces JS errors. It auto-collapses to a small icon after 4 s of clean boot. Click to re-open if something goes wrong.
 
 ## Speaker Diarization (who-said-what)
 
