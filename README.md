@@ -455,6 +455,12 @@ Underlying ML components:
 
 Full third-party notices: [`NOTICE.md`](NOTICE.md).
 
+## Audio capture
+
+The recorder captures **mic + system audio by default** (`recorder.audio_mode: both`).
+Set it to `mic`, `system`, or `none` in `config.yaml`, or pick devices from the
+Settings tab in the desktop UI. Full details in [docs/audio.md](docs/audio.md).
+
 ## License
 
 MIT
