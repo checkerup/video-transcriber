@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from ..audio_devices import list_audio_inputs
 from ..config import AppConfig, load_config
 from ..hardware import detect_hardware
 from .jobs import JobManager
@@ -308,3 +309,73 @@ class JsApi:
         if snap and snap.get("log_tail"):
             return snap["log_tail"][-max_lines:]
         return []
+
+    # ------------------------------------------------------------------
+    # PR1 endpoints — audio devices + config get/set
+    # ------------------------------------------------------------------
+
+    def list_audio_devices(self) -> dict:
+        """Return available audio inputs and the currently selected ones."""
+        try:
+            devices = list_audio_inputs()
+        except Exception as e:
+            logger.exception("list_audio_devices failed")
+            return {"error": str(e), "platform": "", "mic": [], "system": []}
+
+        rec = getattr(self.config, "recorder", None)
+        if rec is not None:
+            devices["selected"] = {
+                "audio_mode": getattr(rec, "audio_mode", "both"),
+                "mic_device": getattr(rec, "mic_device", ""),
+                "system_device": getattr(rec, "system_device", ""),
+            }
+        return devices
+
+    def get_recorder_config(self) -> dict:
+        """Return the current recorder section as a plain dict."""
+        rec = getattr(self.config, "recorder", None)
+        if rec is None:
+            return {}
+        try:
+            return asdict(rec)
+        except TypeError:
+            return {k: getattr(rec, k) for k in ("fps", "video_size", "audio_mode", "mic_device", "system_device")}
+
+    def set_recorder_config(self, payload: dict) -> dict:
+        """Update recorder.* on the in-memory config AND persist to YAML.
+
+        Accepts any subset of: audio_mode, mic_device, system_device, fps, video_size.
+        Returns the new recorder dict on success, or {"error": "..."} on failure.
+        """
+        allowed = {"audio_mode", "mic_device", "system_device", "fps", "video_size"}
+        rec = getattr(self.config, "recorder", None)
+        if rec is None:
+            return {"error": "no recorder section in config"}
+
+        # Validate audio_mode
+        if "audio_mode" in payload:
+            mode = payload["audio_mode"]
+            if mode not in ("none", "mic", "system", "both"):
+                return {"error": f"invalid audio_mode: {mode!r}"}
+
+        for k, v in payload.items():
+            if k in allowed:
+                setattr(rec, k, v)
+
+        # Persist to YAML.
+        try:
+            cfg_path = self.config_path
+            if cfg_path and cfg_path.exists():
+                with cfg_path.open("r", encoding="utf-8") as fh:
+                    raw = yaml.safe_load(fh) or {}
+                raw.setdefault("recorder", {})
+                for k in allowed:
+                    if hasattr(rec, k):
+                        raw["recorder"][k] = getattr(rec, k)
+                with cfg_path.open("w", encoding="utf-8") as fh:
+                    yaml.safe_dump(raw, fh, sort_keys=False, allow_unicode=True)
+        except Exception as e:
+            logger.exception("Failed to persist recorder config")
+            return {"error": f"saved in memory but persist failed: {e}"}
+
+        return self.get_recorder_config()
