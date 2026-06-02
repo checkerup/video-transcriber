@@ -1,10 +1,16 @@
+from __future__ import annotations
+
+import logging
 import os
 import platform
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 
 def _default_videos_dir() -> Path:
@@ -68,10 +74,39 @@ class TelegramConfig:
     max_attachment_mb: int = 49
 
 
+AudioMode = Literal["none", "mic", "system", "both"]
+
+
 @dataclass
 class RecorderConfig:
     fps: int = 30
     video_size: str | None = None
+
+    # PR1: audio capture during live recording.
+    #
+    # audio_mode controls what FFmpeg captures alongside the screen:
+    #   "none"   — video only (legacy behaviour).
+    #   "mic"    — microphone only.
+    #   "system" — system / loopback only ("what you hear").
+    #   "both"   — mic + system mixed into one track (default).
+    audio_mode: AudioMode = "both"
+
+    # Optional explicit device names. If empty, the recorder uses the OS
+    # default mic and the OS default system-output loopback.
+    #
+    #   Windows (dshow):  exact dshow device name, e.g.
+    #       mic_device:    "Microphone (Realtek(R) Audio)"
+    #       system_device: "Stereo Mix (Realtek(R) Audio)"
+    #       (use `ffmpeg -list_devices true -f dshow -i dummy` to discover)
+    #
+    #   macOS (avfoundation): the integer index reported by
+    #       `ffmpeg -f avfoundation -list_devices true -i ""`.
+    #
+    #   Linux (pulse): a PulseAudio source name, e.g.
+    #       mic_device:    "alsa_input.pci-0000_00_1f.3.analog-stereo"
+    #       system_device: "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor"
+    mic_device: str = ""
+    system_device: str = ""
 
 
 @dataclass
@@ -216,6 +251,10 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
     if not isinstance(raw, dict):
         raw = {}
 
+    # PR1: migrate legacy "recorder" section that lacks audio_mode.
+    from .config_migration import migrate_recorder_section
+    raw = migrate_recorder_section(raw, config_path)
+
     watch_raw = _get_dict_section(raw, "watch")
     proc_raw = _get_dict_section(raw, "processing")
     trans_raw = _get_dict_section(raw, "transcription")
@@ -301,6 +340,9 @@ def load_config(config_path: str | Path | None = None, load_env_file: bool = Tru
         recorder=RecorderConfig(
             fps=fps,
             video_size=rec_raw.get("video_size") if rec_raw.get("video_size") is not None else default_rec.video_size,
+            audio_mode=rec_raw.get("audio_mode") or default_rec.audio_mode,
+            mic_device=rec_raw.get("mic_device") if rec_raw.get("mic_device") is not None else default_rec.mic_device,
+            system_device=rec_raw.get("system_device") if rec_raw.get("system_device") is not None else default_rec.system_device,
         ),
         process_watcher=ProcessWatcherConfig(
             program_names=_as_list(pw_raw.get("program_names"), default_pw.program_names),
