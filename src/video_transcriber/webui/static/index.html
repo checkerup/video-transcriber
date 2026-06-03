@@ -300,6 +300,28 @@ window.copyBootLog = function (btn) {
           <h2>Last recording</h2>
           <div class="mono tiny" x-text="live.lastOutput"></div>
         </div>
+
+        <!-- ===== Screen recorder (FFmpeg) ===== -->
+        <div class="card" style="margin-top:18px">
+          <h2>Screen recorder (FFmpeg)</h2>
+          <div class="tiny muted" style="margin-bottom:10px">
+            Direct FFmpeg screen capture with audio from your configured devices.
+            Uses <code>screen_recorder.py</code> — separate from the Live recorder above.
+          </div>
+          <p>
+            Status:
+            <strong x-text="recorder.isRecording ? 'Recording…' : 'Idle'"></strong>
+          </p>
+          <p x-show="recorder.currentOutput" class="mono tiny muted">
+            Output: <code x-text="recorder.currentOutput"></code>
+          </p>
+          <div class="btn-row">
+            <button class="btn primary" @click="startRecorder()" :disabled="recorder.isRecording || recorder.busy">▶ Start recording</button>
+            <button class="btn danger" @click="stopRecorder()" :disabled="!recorder.isRecording || recorder.busy">⏹ Stop</button>
+            <span class="spacer"></span>
+            <span class="tiny err" x-show="recorder.error" x-text="recorder.error"></span>
+          </div>
+        </div>
       </div>
 
       <!-- ========== HISTORY tab ========== -->
@@ -489,6 +511,59 @@ window.copyBootLog = function (btn) {
             <span class="tiny" :class="settings.tg.testResult==='ok' ? 'ok' : 'err'"
                   x-show="settings.tg.testResult"
                   x-text="settings.tg.testResult==='ok' ? '✓ sent' : ('✗ ' + settings.tg.testResult)"></span>
+          </div>
+        </div>
+
+        <!-- ===== Audio capture card ===== -->
+        <div class="card">
+          <h2>Audio capture (screen recorder)</h2>
+          <div class="tiny muted" style="margin-bottom:10px">
+            Controls what the <b>screen recorder</b> captures alongside the video.
+            This is separate from the Live tab's <code>soundcard</code>-based recorder.
+          </div>
+          <div class="row">
+            <label class="field">
+              <span class="lbl">Audio mode</span>
+              <select x-model="settings.audio.audio_mode">
+                <option value="none">No audio (video only)</option>
+                <option value="mic">Microphone only</option>
+                <option value="system">System sound only</option>
+                <option value="both">Mic + System (default)</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" x-show="settings.audio.audio_mode==='mic' || settings.audio.audio_mode==='both'">
+            <label class="field">
+              <span class="lbl">Microphone</span>
+              <select x-model="settings.audio.mic_device">
+                <option value="">(OS default)</option>
+                <template x-for="d in settings.audio.devices.mic" :key="d">
+                  <option :value="d" x-text="d"></option>
+                </template>
+              </select>
+            </label>
+          </div>
+          <div class="row" x-show="settings.audio.audio_mode==='system' || settings.audio.audio_mode==='both'">
+            <label class="field">
+              <span class="lbl">System / loopback device</span>
+              <select x-model="settings.audio.system_device">
+                <option value="">(OS default)</option>
+                <template x-for="d in settings.audio.devices.system" :key="d">
+                  <option :value="d" x-text="d"></option>
+                </template>
+              </select>
+              <span class="tiny muted" x-show="settings.audio.devices.system.length===0">
+                No loopback detected. On Windows enable <em>Sound → Recording → Stereo Mix</em>, then refresh.
+              </span>
+            </label>
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn" @click="refreshAudioDevices()">↻ Refresh devices</button>
+            <button class="btn primary" @click="saveAudio()">💾 Save audio settings</button>
+            <span class="spacer"></span>
+            <span class="tiny muted" x-show="settings.audio.savedAt"
+                  x-text="`Saved ${new Date(settings.audio.savedAt).toLocaleTimeString()}`"></span>
+            <span class="tiny err" x-show="settings.audio.error" x-text="settings.audio.error"></span>
           </div>
         </div>
 

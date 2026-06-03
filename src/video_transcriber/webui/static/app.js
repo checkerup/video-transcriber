@@ -100,6 +100,22 @@ window.app = function () {
         savedAt: null,
         testResult: null,
       },
+      audio: {
+        audio_mode: "both",
+        mic_device: "",
+        system_device: "",
+        devices: { platform: "", mic: [], system: [] },
+        savedAt: null,
+        error: "",
+      },
+    },
+
+    recorder: {
+      isRecording: false,
+      currentOutput: "",
+      error: "",
+      busy: false,
+      _timer: null,
     },
 
     drawer: {
@@ -155,6 +171,7 @@ window.app = function () {
         if (typeof window.bootLog === "function") window.bootLog("refreshAll: " + e.message, "err");
       }
       this.startJobPolling();
+      this._startRecorderPolling();
     },
 
     async waitForApi(timeoutMs = 8000) {
@@ -177,6 +194,8 @@ window.app = function () {
       // seed Telegram form from config
       this._syncTgFromConfig();
       this._syncLLMFromConfig();
+      this._syncAudioFromConfig();
+      this.refreshAudioDevices();
     },
 
     // ----- file picking -----
@@ -429,6 +448,92 @@ window.app = function () {
         this.settings.tg.testResult = String(e);
         this.toast(String(e), "err");
       }
+    },
+
+    // ----- audio capture settings -----
+
+    async refreshAudioDevices() {
+      this.settings.audio.error = "";
+      try {
+        const d = await call("list_audio_devices");
+        if (d && d.error) { this.settings.audio.error = d.error; return; }
+        this.settings.audio.devices = Object.assign({ mic: [], system: [], selected: {} }, d || {});
+        if (this.settings.audio.devices.selected) {
+          this.settings.audio.audio_mode = this.settings.audio.devices.selected.audio_mode || this.settings.audio.audio_mode;
+          this.settings.audio.mic_device = this.settings.audio.devices.selected.mic_device || "";
+          this.settings.audio.system_device = this.settings.audio.devices.selected.system_device || "";
+        }
+      } catch (e) { this.settings.audio.error = String(e); }
+    },
+
+    async _syncAudioFromConfig() {
+      try {
+        const rec = await call("get_recorder_config");
+        if (rec && !rec.error) {
+          this.settings.audio.audio_mode = rec.audio_mode || this.settings.audio.audio_mode;
+          this.settings.audio.mic_device = rec.mic_device || "";
+          this.settings.audio.system_device = rec.system_device || "";
+        }
+      } catch (_) {}
+    },
+
+    async saveAudio() {
+      this.settings.audio.error = "";
+      try {
+        const res = await call("set_recorder_config", {
+          audio_mode: this.settings.audio.audio_mode,
+          mic_device: this.settings.audio.mic_device,
+          system_device: this.settings.audio.system_device,
+        });
+        if (res && res.error) {
+          this.settings.audio.error = res.error;
+        } else {
+          this.settings.audio.savedAt = Date.now();
+          this.toast("Audio settings saved.");
+          this.config = await call("get_config");
+        }
+      } catch (e) { this.settings.audio.error = String(e); }
+    },
+
+    // ----- screen recorder (FFmpeg) -----
+
+    async _startRecorderPolling() {
+      if (this.recorder._timer) return;
+      const tick = async () => {
+        try {
+          const status = await call("get_recorder_status");
+          this.recorder.isRecording = !!status.is_recording;
+          this.recorder.currentOutput = status.output || "";
+        } catch (_) {}
+        this.recorder._timer = setTimeout(tick, 2000);
+      };
+      tick();
+    },
+
+    async startRecorder() {
+      this.recorder.busy = true; this.recorder.error = "";
+      try {
+        const res = await call("start_recording");
+        if (res && res.error) this.recorder.error = res.error;
+        else this.toast("Screen recording started.");
+        const status = await call("get_recorder_status");
+        this.recorder.isRecording = !!status.is_recording;
+        this.recorder.currentOutput = status.output || "";
+      } catch (e) { this.recorder.error = String(e); }
+      finally { this.recorder.busy = false; }
+    },
+
+    async stopRecorder() {
+      this.recorder.busy = true; this.recorder.error = "";
+      try {
+        const res = await call("stop_recording");
+        if (res && res.error) this.recorder.error = res.error;
+        else this.toast("Screen recording stopped.");
+        const status = await call("get_recorder_status");
+        this.recorder.isRecording = !!status.is_recording;
+        this.recorder.currentOutput = status.output || "";
+      } catch (e) { this.recorder.error = String(e); }
+      finally { this.recorder.busy = false; }
     },
 
     // ----- drawer / history actions -----

@@ -20,6 +20,7 @@ import yaml
 from ..audio_devices import list_audio_inputs
 from ..config import AppConfig, load_config
 from ..hardware import detect_hardware
+from ..screen_recorder import get_current_output, is_recording, start_recording as _start_recording, stop_recording as _stop_recording
 from .jobs import JobManager
 
 
@@ -309,6 +310,37 @@ class JsApi:
         if snap and snap.get("log_tail"):
             return snap["log_tail"][-max_lines:]
         return []
+
+    # ----- screen recorder (FFmpeg, via screen_recorder.py) -----
+
+    def get_recorder_status(self) -> dict:
+        """Return whether the FFmpeg screen recorder is active."""
+        return {
+            "is_recording": is_recording(),
+            "output": get_current_output() or "",
+        }
+
+    def start_recording(self) -> dict:
+        """Start FFmpeg screen recording."""
+        try:
+            result = _start_recording(self.config)
+            if result is None:
+                return {"error": "Failed to start recording"}
+            return {"ok": True, "output": result}
+        except Exception as e:
+            logger.exception("start_recording failed")
+            return {"error": str(e)}
+
+    def stop_recording(self) -> dict:
+        """Stop the FFmpeg screen recording."""
+        try:
+            result = _stop_recording()
+            if result is None:
+                return {"error": "No recording in progress"}
+            return {"ok": True, "output": result}
+        except Exception as e:
+            logger.exception("stop_recording failed")
+            return {"error": str(e)}
 
     # ------------------------------------------------------------------
     # PR1 endpoints — audio devices + config get/set
